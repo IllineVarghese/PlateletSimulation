@@ -12,10 +12,13 @@ def move_platelets(
     positions[i] = positions[i] + velocities[i] * dt
 
 
-
-def run_step():
+def run_step(device: str = "cpu"):
     wp.init()
-    wp.set_device("cpu")
+
+    if device == "cuda" and wp.is_cuda_available():
+        wp.set_device("cuda")
+    else:
+        wp.set_device("cpu")
 
     num_platelets = 10
     dt = 0.01
@@ -23,13 +26,13 @@ def run_step():
     positions = wp.array(
         np.random.rand(num_platelets, 3),
         dtype=wp.vec3,
-        device="cpu",
+        device=wp.get_device(),
     )
 
     velocities = wp.array(
         np.random.randn(num_platelets, 3) * 0.1,
         dtype=wp.vec3,
-        device="cpu",
+        device=wp.get_device(),
     )
 
     wp.launch(
@@ -43,4 +46,4 @@ def run_step():
 
 
 if __name__ == "__main__":
-    run_step()
+    run_step("cpu")
