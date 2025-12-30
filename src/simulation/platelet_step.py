@@ -12,7 +12,8 @@ def move_platelets(
     positions[i] = positions[i] + velocities[i] * dt
 
 
-def main():
+
+def run_step():
     wp.init()
     wp.set_device("cpu")
 
@@ -42,4 +43,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_step()
