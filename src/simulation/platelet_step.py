@@ -43,6 +43,7 @@ def run_step(device: str = "cpu"):
 
     print("Updated positions:")
     print(positions.numpy())
+    return positions
 
 
 if __name__ == "__main__":

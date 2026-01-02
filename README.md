@@ -6,6 +6,8 @@
 
 ## How to run
 
-python src/simulation/run.py --device cpu
+
 python src/simulation/platelet_step.py
-python src/simulation/platelet_sim.py --steps 3
+python src/simulation/platelet_sim.py --steps 3 --device cpu
+python src/simulation/platelet_sim.py --steps 3 --device cuda
+
