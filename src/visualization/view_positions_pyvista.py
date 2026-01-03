@@ -4,12 +4,11 @@ import pyvista as pv
 
 
 def main():
-    data_path = Path("results") / "positions_steps.npy"
+    data_path = Path("results") / "positions_steps_warp.npy"
     if not data_path.exists():
-        raise FileNotFoundError(f"Missing file: {data_path}. Run platelet_sim.py first.")
+        raise FileNotFoundError(f"Missing file: {data_path}. Run warp_particles_cpu.py (or platelet_sim.py) first.")
 
     data = np.load(data_path)  # shape: (steps, N, 3)
-
     out_dir = Path("results")
     out_dir.mkdir(parents=True, exist_ok=True)
 
