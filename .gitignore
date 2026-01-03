@@ -15,4 +15,8 @@ Thumbs.db
 
 # Project outputs
 data/
-results/
+
+# Simulation results (generated)
+results/*.npy
+results/*.png
+
