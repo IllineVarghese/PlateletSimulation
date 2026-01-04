@@ -4,7 +4,7 @@ import pyvista as pv
 
 
 def main():
-    data_path = Path("results") / "positions_steps_warp_cyl.npy"
+    data_path = Path("results") / "positions_steps_warp_cyl_poiseuille.npy"
     if not data_path.exists():
         raise FileNotFoundError(f"Missing file: {data_path}. Run warp_particles_box_collision_cpu.py first.")
 
