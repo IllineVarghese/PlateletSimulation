@@ -4,7 +4,7 @@ import pyvista as pv
 
 
 def main():
-    data_path = Path("results") / "positions_steps_warp_box.npy"
+    data_path = Path("results") / "positions_steps_warp_cyl.npy"
     if not data_path.exists():
         raise FileNotFoundError(f"Missing file: {data_path}. Run warp_particles_box_collision_cpu.py first.")
 
@@ -17,14 +17,19 @@ def main():
     plotter = pv.Plotter(off_screen=True, window_size=(1280, 720))
     plotter.set_background("white")
     plotter.add_axes()
-    # draw the box boundary (must match the bounds used in the sim)
-    bmin = (-0.2, -0.2, 0.0)
-    bmax = ( 0.2,  0.2, 0.6)
+    # draw cylinder boundary (must match sim)
+    R = 0.2
+    ZMIN = 0.0
+    ZMAX = 0.8
 
-    bounds = (bmin[0], bmax[0], bmin[1], bmax[1], bmin[2], bmax[2])
-    box = pv.Box(bounds=bounds)
-    plotter.add_mesh(box, style="wireframe", line_width=2, color="black")
+    cyl = pv.Cylinder(center=(0, 0, 0.5*(ZMIN+ZMAX)),
+                      direction=(0, 0, 1),
+                      radius=R,
+                      height=(ZMAX - ZMIN),
+                      resolution=64)
+    plotter.add_mesh(cyl, style="wireframe", line_width=2, color="black")
 
+    
 
     # Start with first frame
     points = pv.PolyData(data[0])
