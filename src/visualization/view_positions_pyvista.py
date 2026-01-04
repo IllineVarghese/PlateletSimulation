@@ -4,9 +4,10 @@ import pyvista as pv
 
 
 def main():
-    data_path = Path("results") / "positions_steps_warp.npy"
+    data_path = Path("results") / "positions_steps_warp_box.npy"
     if not data_path.exists():
-        raise FileNotFoundError(f"Missing file: {data_path}. Run warp_particles_cpu.py (or platelet_sim.py) first.")
+        raise FileNotFoundError(f"Missing file: {data_path}. Run warp_particles_box_collision_cpu.py first.")
+
 
     data = np.load(data_path)  # shape: (steps, N, 3)
     out_dir = Path("results")
@@ -16,6 +17,14 @@ def main():
     plotter = pv.Plotter(off_screen=True, window_size=(1280, 720))
     plotter.set_background("white")
     plotter.add_axes()
+    # draw the box boundary (must match the bounds used in the sim)
+    bmin = (-0.2, -0.2, 0.0)
+    bmax = ( 0.2,  0.2, 0.6)
+
+    bounds = (bmin[0], bmax[0], bmin[1], bmax[1], bmin[2], bmax[2])
+    box = pv.Box(bounds=bounds)
+    plotter.add_mesh(box, style="wireframe", line_width=2, color="black")
+
 
     # Start with first frame
     points = pv.PolyData(data[0])
