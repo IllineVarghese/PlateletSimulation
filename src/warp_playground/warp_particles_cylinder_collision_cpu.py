@@ -3,7 +3,7 @@ import numpy as np
 import warp as wp
 
 wp.init()
-DEVICE = "cpu"   # later on gaming laptop: change to "cuda"
+DEVICE = "cuda:0"
 
 # -----------------------------
 # Params
@@ -12,31 +12,36 @@ N = 500
 DT = 0.01
 STEPS = 400
 
-# Cylinder (tube) aligned with Z axis:
-# inside if x^2 + y^2 <= R^2 and z in [ZMIN, ZMAX]
-R = 0.2
+# Cylinder aligned with Z axis, centered at (0,0)
+R_CYL = 0.2
 ZMIN = 0.0
 ZMAX = 0.8
 
-# Particle radius and collision response
-RADIUS = 0.01
-RESTITUTION = 0.6       # bounce on normal component
-DAMP_TANGENTIAL = 0.995 # slight damping along wall
+# Particle collision params
+PR = 0.01              # particle radius
+REST = 0.6             # restitution (normal bounce)
+DAMP_TAN = 0.995       # tangential damping (wall "friction")
 
-# Flow field: constant +z velocity (start simple)
+# Flow: constant upward velocity (example)
 FLOW_VZ = 0.35
 
-# -----------------------------
-# Initial state
-# -----------------------------
-# Sample positions inside a smaller radius so we start well inside the cylinder
-theta = 2.0 * np.pi * np.random.rand(N).astype(np.float32)
-rad = (0.08 * np.sqrt(np.random.rand(N))).astype(np.float32)  # <= 0.08
-x = rad * np.cos(theta)
-y = rad * np.sin(theta)
-z = (ZMIN + 0.1 + 0.2 * np.random.rand(N)).astype(np.float32)
 
-pos_np = np.stack([x, y, z], axis=1).astype(np.float32)
+# -----------------------------
+# Initial state (inside cylinder)
+# -----------------------------
+def sample_inside_cylinder(n, r_cyl, zmin, zmax, pr):
+    # uniform in area: r = sqrt(u) * (R - pr)
+    u = np.random.rand(n).astype(np.float32)
+    r = np.sqrt(u) * (r_cyl - pr) * 0.5  # start well inside
+    theta = (2.0 * np.pi * np.random.rand(n)).astype(np.float32)
+    x = r * np.cos(theta)
+    y = r * np.sin(theta)
+    z = (zmin + pr + (zmax - zmin - 2 * pr) * 0.25
+         + (zmax - zmin) * 0.1 * np.random.rand(n)).astype(np.float32)
+    return np.stack([x, y, z], axis=1).astype(np.float32)
+
+
+pos_np = sample_inside_cylinder(N, R_CYL, ZMIN, ZMAX, PR)
 
 vel_np = np.zeros((N, 3), dtype=np.float32)
 vel_np[:, 2] = FLOW_VZ
@@ -44,19 +49,20 @@ vel_np[:, 2] = FLOW_VZ
 pos = wp.array(pos_np, dtype=wp.vec3, device=DEVICE)
 vel = wp.array(vel_np, dtype=wp.vec3, device=DEVICE)
 
+
 # -----------------------------
-# Kernel: integrate + collide with cylinder + z caps
+# Kernel: integrate + collide cylinder wall + caps
 # -----------------------------
 @wp.kernel
 def integrate_and_collide_cylinder(
     pos: wp.array(dtype=wp.vec3),
     vel: wp.array(dtype=wp.vec3),
     dt: float,
-    cyl_r: float,
+    r_cyl: float,
     zmin: float,
     zmax: float,
-    pradius: float,
-    restitution: float,
+    pr: float,
+    rest: float,
     damp_tan: float,
 ):
     i = wp.tid()
@@ -67,48 +73,56 @@ def integrate_and_collide_cylinder(
     # integrate
     p = p + v * dt
 
-    # ---- collide with cylinder wall (radial) ----
-    # wall is at r = cyl_r - pradius
-    r_allowed = cyl_r - pradius
+    # Allowed interior limits
+    r_allowed = r_cyl - pr
+    z_low = zmin + pr
+    z_high = zmax - pr
 
+    # ---- side wall collision ----
     x = p[0]
     y = p[1]
     r2 = x * x + y * y
+    r_allowed2 = r_allowed * r_allowed
 
-    if r2 > r_allowed * r_allowed:
-        r = wp.sqrt(r2) + 1.0e-12
-        # normal pointing outward in xy plane
-        nx = x / r
-        ny = y / r
+    if r2 > r_allowed2:
+        # normal is radial in xy plane
+        r = wp.sqrt(r2)
+        inv_r = 1.0 / (r + 1.0e-12)
+        nx = x * inv_r
+        ny = y * inv_r
 
-        # project point back to wall
+        # Project position back to the wall
         p = wp.vec3(nx * r_allowed, ny * r_allowed, p[2])
 
-        # decompose velocity into normal/tangential parts in xy
+        # Normal velocity component (in xy plane)
         vn = v[0] * nx + v[1] * ny
-        vnx = vn * nx
-        vny = vn * ny
-        vtx = v[0] - vnx
-        vty = v[1] - vny
 
-        # reflect normal, damp tangential; keep vz mostly unchanged (but apply mild damping)
-        new_vx = (-vn * restitution) * nx + vtx * damp_tan
-        new_vy = (-vn * restitution) * ny + vty * damp_tan
-        new_vz = v[2] * damp_tan
+        # Only reflect if moving outward into the wall (vn > 0)
+        if vn > 0.0:
+            # Split velocity into normal and tangential components (xy only)
+            vnx = vn * nx
+            vny = vn * ny
+            vtx = v[0] - vnx
+            vty = v[1] - vny
 
-        v = wp.vec3(new_vx, new_vy, new_vz)
+            # Reflect normal component and damp tangential
+            new_vx = (-rest * vn) * nx + damp_tan * vtx
+            new_vy = (-rest * vn) * ny + damp_tan * vty
+            new_vz = v[2]  # usually don't change vz on side wall
 
-    # ---- collide with z caps (optional; keeps particles in a finite tube) ----
-    z_low = zmin + pradius
-    z_high = zmax - pradius
+            v = wp.vec3(new_vx, new_vy, new_vz)
 
+    # ---- bottom cap collision ----
     if p[2] < z_low:
         p = wp.vec3(p[0], p[1], z_low)
-        v = wp.vec3(v[0] * damp_tan, v[1] * damp_tan, -v[2] * restitution)
+        if v[2] < 0.0:
+            v = wp.vec3(damp_tan * v[0], damp_tan * v[1], -rest * v[2])
 
+    # ---- top cap collision ----
     if p[2] > z_high:
         p = wp.vec3(p[0], p[1], z_high)
-        v = wp.vec3(v[0] * damp_tan, v[1] * damp_tan, -v[2] * restitution)
+        if v[2] > 0.0:
+            v = wp.vec3(damp_tan * v[0], damp_tan * v[1], -rest * v[2])
 
     pos[i] = p
     vel[i] = v
@@ -121,7 +135,7 @@ def main():
         wp.launch(
             integrate_and_collide_cylinder,
             dim=N,
-            inputs=[pos, vel, DT, R, ZMIN, ZMAX, RADIUS, RESTITUTION, DAMP_TANGENTIAL],
+            inputs=[pos, vel, DT, R_CYL, ZMIN, ZMAX, PR, REST, DAMP_TAN],
             device=DEVICE,
         )
         positions_steps[s] = pos.numpy()
@@ -134,6 +148,10 @@ def main():
     print("saved:", out_path.as_posix(), "shape:", positions_steps.shape)
     print("last step min:", last.min(axis=0))
     print("last step max:", last.max(axis=0))
+
+    # extra sanity: max radius should never exceed r_allowed by more than tiny epsilon
+    r = np.sqrt(last[:, 0] ** 2 + last[:, 1] ** 2)
+    print("last step max radius:", float(r.max()), "allowed:", float(R_CYL - PR))
 
 
 if __name__ == "__main__":

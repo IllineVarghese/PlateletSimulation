@@ -3,7 +3,7 @@ import numpy as np
 import warp as wp
 
 wp.init()
-DEVICE = "cpu"   # later change to "cuda" on the gaming laptop
+DEVICE = "cuda:0"   # later change to "cuda" on the gaming laptop
 
 # -----------------------------
 # Simulation parameters

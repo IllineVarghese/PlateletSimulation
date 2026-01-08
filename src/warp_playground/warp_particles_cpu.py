@@ -9,7 +9,7 @@ import warp as wp
 # Warp setup
 # -----------------------------
 wp.init()
-DEVICE = "cpu"   # later on gaming laptop: change to "cuda"
+DEVICE = "cuda:0"   # later on gaming laptop: change to "cuda"
 
 
 # -----------------------------

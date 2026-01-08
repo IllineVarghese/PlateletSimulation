@@ -3,7 +3,7 @@ import numpy as np
 import warp as wp
 
 wp.init()
-DEVICE = "cpu"  # later: "cuda"
+DEVICE = "cuda:0"  # later: "cuda"
 
 # -----------------------------
 # Params
