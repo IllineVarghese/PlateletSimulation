@@ -3,18 +3,18 @@ import pyvista as pv
 from pathlib import Path
 
 
-def make_frustum(zmin, zmax, r0, r1, n=160):
-    """Create a truncated cone (frustum) surface as PolyData."""
+def make_cylinder_surface(zmin: float, zmax: float, r: float, n: int = 180) -> pv.PolyData:
+    """Create a cylinder side surface (no caps) as PolyData."""
     theta = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
 
     # bottom ring (z=zmin)
-    xb = r0 * np.cos(theta)
-    yb = r0 * np.sin(theta)
+    xb = r * np.cos(theta)
+    yb = r * np.sin(theta)
     zb = np.full_like(theta, zmin)
 
     # top ring (z=zmax)
-    xt = r1 * np.cos(theta)
-    yt = r1 * np.sin(theta)
+    xt = r * np.cos(theta)
+    yt = r * np.sin(theta)
     zt = np.full_like(theta, zmax)
 
     pts = np.vstack([
@@ -32,34 +32,37 @@ def make_frustum(zmin, zmax, r0, r1, n=160):
         # quad: bottom i -> bottom i+1 -> top i+1 -> top i
         faces.extend([4, i0, i1, j1, j0])
 
-    poly = pv.PolyData(pts, faces=np.array(faces))
-    return poly
+    return pv.PolyData(pts, faces=np.array(faces))
 
 
-def make_ring(z, r, n=200):
+def make_ring(z: float, r: float, n: int = 200) -> pv.PolyData:
     """Create a ring (polyline) circle at height z."""
     theta = np.linspace(0.0, 2.0 * np.pi, n, endpoint=True)
     x = r * np.cos(theta)
     y = r * np.sin(theta)
-    z = np.full_like(theta, z)
-    pts = np.stack([x, y, z], axis=1).astype(np.float32)
+    zz = np.full_like(theta, z)
+    pts = np.stack([x, y, zz], axis=1).astype(np.float32)
     return pv.Spline(pts, n_points=len(pts))
 
 
 def main():
-    data_path = Path("results") / "positions_steps_warp_cone_poiseuille.npy"
+    data_path = Path("results") / "positions_steps_warp_cyl_poiseuille.npy"
     if not data_path.exists():
-        raise FileNotFoundError(f"Missing file: {data_path}. Run the cone sim first.")
+        raise FileNotFoundError(
+            f"Missing file: {data_path}. Run the CYLINDER Poiseuille sim first."
+        )
 
     data = np.load(data_path)  # (steps, N, 3)
     steps, N, dim = data.shape
-    assert dim == 3
+    if dim != 3:
+        raise ValueError(f"Expected data shape (steps, N, 3), got {data.shape}")
 
-    # MUST match your sim params
+    # MUST match your sim params (geometry used by the cylinder simulation)
     ZMIN = 0.0
     ZMAX = 0.8
-    R0 = 0.24
-    R1 = 0.12
+
+    # Cylinder radius (use ONE value, same at inlet and outlet)
+    R = 0.2  # <-- set this to match your cylinder sim radius (often R = 0.2 in your scripts)
 
     out_dir = Path("results")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -68,13 +71,13 @@ def main():
     plotter.set_background("white")
     plotter.add_axes()
 
-    # Exact frustum boundary (wireframe)
-    frustum = make_frustum(ZMIN, ZMAX, R0, R1, n=180)
-    plotter.add_mesh(frustum, style="wireframe", line_width=2, color="black")
+    # Cylinder boundary (wireframe)
+    cyl = make_cylinder_surface(ZMIN, ZMAX, R, n=180)
+    plotter.add_mesh(cyl, style="wireframe", line_width=2, color="black")
 
-    # Draw inlet/outlet as RINGS (not filled disks)
-    ring_in = make_ring(ZMIN, R0)
-    ring_out = make_ring(ZMAX, R1)
+    # Inlet/outlet rings
+    ring_in = make_ring(ZMIN, R)
+    ring_out = make_ring(ZMAX, R)
     plotter.add_mesh(ring_in, color="black", line_width=3)
     plotter.add_mesh(ring_out, color="black", line_width=3)
 
@@ -83,14 +86,18 @@ def main():
     points = pv.PolyData(last)
     plotter.add_points(points, render_points_as_spheres=True, point_size=12, color="steelblue")
 
-    plotter.add_text("Platelets (cone Poiseuille - last step)", position="upper_edge",
-                     font_size=22, color="black")
+    plotter.add_text(
+        "Platelets (cylinder Poiseuille - last step)",
+        position="upper_edge",
+        font_size=22,
+        color="black"
+    )
 
     # Camera (nice stable view)
     plotter.camera_position = "iso"
     plotter.camera.zoom(1.15)
 
-    out_png = out_dir / "pyvista_cone_poiseuille_last.png"
+    out_png = out_dir / "baseline_cylinder_poiseuille_gpu.png"
     plotter.screenshot(str(out_png))
     plotter.close()
     print(f"Saved screenshot to {out_png}")
@@ -98,3 +105,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
