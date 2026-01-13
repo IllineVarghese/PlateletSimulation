@@ -23,3 +23,5 @@ CUDA GPU (NVIDIA Warp).
 ## Status
 Baseline frozen. Future work will add quantitative analysis, animations,
 and physical validation.
+_Last updated before supervisor meeting._
+  
