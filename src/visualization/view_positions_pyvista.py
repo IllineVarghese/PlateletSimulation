@@ -4,15 +4,12 @@ from pathlib import Path
 
 
 def make_cylinder_surface(zmin: float, zmax: float, r: float, n: int = 180) -> pv.PolyData:
-    """Create a cylinder side surface (no caps) as PolyData."""
     theta = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
 
-    # bottom ring (z=zmin)
     xb = r * np.cos(theta)
     yb = r * np.sin(theta)
     zb = np.full_like(theta, zmin)
 
-    # top ring (z=zmax)
     xt = r * np.cos(theta)
     yt = r * np.sin(theta)
     zt = np.full_like(theta, zmax)
@@ -22,21 +19,18 @@ def make_cylinder_surface(zmin: float, zmax: float, r: float, n: int = 180) -> p
         np.stack([xt, yt, zt], axis=1)
     ]).astype(np.float32)
 
-    # build quad faces between rings
     faces = []
     for i in range(n):
         i0 = i
         i1 = (i + 1) % n
         j0 = n + i
         j1 = n + (i + 1) % n
-        # quad: bottom i -> bottom i+1 -> top i+1 -> top i
         faces.extend([4, i0, i1, j1, j0])
 
     return pv.PolyData(pts, faces=np.array(faces))
 
 
 def make_ring(z: float, r: float, n: int = 200) -> pv.PolyData:
-    """Create a ring (polyline) circle at height z."""
     theta = np.linspace(0.0, 2.0 * np.pi, n, endpoint=True)
     x = r * np.cos(theta)
     y = r * np.sin(theta)
@@ -48,21 +42,17 @@ def make_ring(z: float, r: float, n: int = 200) -> pv.PolyData:
 def main():
     data_path = Path("results") / "positions_steps_warp_cyl_poiseuille.npy"
     if not data_path.exists():
-        raise FileNotFoundError(
-            f"Missing file: {data_path}. Run the CYLINDER Poiseuille sim first."
-        )
+        raise FileNotFoundError(f"Missing file: {data_path}. Run the CYLINDER Poiseuille sim first.")
 
     data = np.load(data_path)  # (steps, N, 3)
-    steps, N, dim = data.shape
-    if dim != 3:
+    if data.ndim != 3 or data.shape[2] != 3:
         raise ValueError(f"Expected data shape (steps, N, 3), got {data.shape}")
 
-    # MUST match your sim params (geometry used by the cylinder simulation)
+    # MUST match your sim params
     ZMIN = 0.0
     ZMAX = 0.8
-
-    # Cylinder radius (use ONE value, same at inlet and outlet)
-    R = 0.2  # <-- set this to match your cylinder sim radius (often R = 0.2 in your scripts)
+    R = 0.2       # cylinder radius
+    VMAX = 0.6    # Poiseuille vmax (flow-field)
 
     out_dir = Path("results")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -71,29 +61,43 @@ def main():
     plotter.set_background("white")
     plotter.add_axes()
 
-    # Cylinder boundary (wireframe)
+    # Cylinder boundary
     cyl = make_cylinder_surface(ZMIN, ZMAX, R, n=180)
     plotter.add_mesh(cyl, style="wireframe", line_width=2, color="black")
 
     # Inlet/outlet rings
-    ring_in = make_ring(ZMIN, R)
-    ring_out = make_ring(ZMAX, R)
-    plotter.add_mesh(ring_in, color="black", line_width=3)
-    plotter.add_mesh(ring_out, color="black", line_width=3)
+    plotter.add_mesh(make_ring(ZMIN, R), color="black", line_width=3)
+    plotter.add_mesh(make_ring(ZMAX, R), color="black", line_width=3)
 
-    # particles (last frame)
+    # Last frame particles
     last = data[-1]
+
+    # Flow-field speed at particle location (Poiseuille profile)
+    radial = np.sqrt(last[:, 0] ** 2 + last[:, 1] ** 2)
+    speed = VMAX * (1.0 - (radial / R) ** 2)
+    speed = np.clip(speed, 0.0, VMAX)
+
     points = pv.PolyData(last)
-    plotter.add_points(points, render_points_as_spheres=True, point_size=12, color="steelblue")
+    points["speed"] = speed
+
+    plotter.add_points(
+        points,
+        render_points_as_spheres=True,
+        point_size=12,
+        scalars="speed",
+        cmap="viridis",
+        clim=(0.0, VMAX),
+    )
+
+    plotter.add_scalar_bar(title="Flow-field speed", vertical=True)
 
     plotter.add_text(
         "Platelets (cylinder Poiseuille - last step)",
         position="upper_edge",
         font_size=22,
-        color="black"
+        color="black",
     )
 
-    # Camera (nice stable view)
     plotter.camera_position = "iso"
     plotter.camera.zoom(1.15)
 
@@ -105,4 +109,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
