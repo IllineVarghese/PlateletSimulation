@@ -25,3 +25,16 @@ Baseline frozen. Future work will add quantitative analysis, animations,
 and physical validation.
 _Last updated before supervisor meeting._
   
+## Video Outputs
+
+- Cylinder Poiseuille flow (GPU, static coloring):
+  results/cylinder_poiseuille_gpu.mp4
+
+- Cylinder Poiseuille flow (GPU, velocity-colored):
+  results/cylinder_poiseuille_gpu_colored.mp4
+
+These videos demonstrate:
+- GPU-based particle transport
+- Parabolic Poiseuille velocity profile
+- Correct boundary confinement
+- Frame-consistent scalar visualization
