@@ -38,3 +38,16 @@ These videos demonstrate:
 - Parabolic Poiseuille velocity profile
 - Correct boundary confinement
 - Frame-consistent scalar visualization
+
+# Scope & Limitations
+This pre-practical baseline focuses exclusively on GPU-based transport
+and visualization of simplified platelet agents.
+
+Not included at this stage:
+- Biological platelet behavior
+- Gene regulatory networks (GRN)
+- Chemical sensing or shear-stress feedback
+- Deformable or mesh-based platelets
+- Omniverse / RTX visualization
+
+These components are planned for the main thesis implementation.
