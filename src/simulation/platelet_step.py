@@ -1,5 +1,7 @@
-import warp as wp
 import numpy as np
+import warp as wp
+
+_WARP_INITIALIZED = False
 
 
 @wp.kernel
@@ -12,39 +14,55 @@ def move_platelets(
     positions[i] = positions[i] + velocities[i] * dt
 
 
-def run_step(device: str = "cpu"):
-    wp.init()
+def run_step(
+    device="cpu",
+    num_agents=10,
+    dt=0.01,
+    seed=42,
+    geom_cfg=None,
+    flow_cfg=None,
+    debug_print=False,
+):
+    global _WARP_INITIALIZED
+    if not _WARP_INITIALIZED:
+        wp.init()
+        _WARP_INITIALIZED = True
 
+    # Choose device
     if device == "cuda" and wp.is_cuda_available():
         wp.set_device("cuda")
     else:
         wp.set_device("cpu")
 
-    num_platelets = 10
-    dt = 0.01
+    # Deterministic init
+    rng = np.random.default_rng(seed)
 
     positions = wp.array(
-        np.random.rand(num_platelets, 3),
+        rng.random((num_agents, 3), dtype=np.float32),
         dtype=wp.vec3,
         device=wp.get_device(),
     )
 
     velocities = wp.array(
-        np.random.randn(num_platelets, 3) * 0.1,
+        (rng.standard_normal((num_agents, 3), dtype=np.float32) * 0.1),
         dtype=wp.vec3,
         device=wp.get_device(),
     )
 
     wp.launch(
         kernel=move_platelets,
-        dim=num_platelets,
-        inputs=[positions, velocities, dt],
+        dim=num_agents,
+        inputs=[positions, velocities, float(dt)],
     )
 
-    print("Updated positions:")
-    print(positions.numpy())
+    # IMPORTANT: no huge prints
+    if debug_print:
+        pos_np = positions.numpy()
+        print(f"[run_step] positions shape: {pos_np.shape}")
+        print(f"[run_step] first particle: {pos_np[0]}")
+
     return positions
 
 
 if __name__ == "__main__":
-    run_step("cpu")
+    run_step(device="cpu", num_agents=10, dt=0.01, seed=42, debug_print=True)
