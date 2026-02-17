@@ -6,21 +6,24 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from .platelet_step import run_step
+from .sim_state import create_state
+from .platelet_step import step_state
 
 
 def run_simulation(config: dict):
     """
-    Week 1 thesis runner:
+    Week 2 thesis runner:
     - reads parameters from config dict
+    - creates persistent SimState ONCE
     - runs for N steps on chosen device
+    - updates positions/velocities IN-PLACE each timestep
     - saves outputs into a fixed output folder
     - logs timing + FPS
     """
 
     sim_cfg = config.get("simulation", {})
-    geom_cfg = config.get("geometry", {})
-    flow_cfg = config.get("flow", {})
+    geom_cfg = config.get("geometry", {})  # kept for Week 3 (walls etc.)
+    flow_cfg = config.get("flow", {})      # kept for Week 3 (Poiseuille etc.)
     out_cfg = config.get("output", {})
 
     # ---- simulation params ----
@@ -35,10 +38,12 @@ def run_simulation(config: dict):
     if device not in ("cpu", "cuda"):
         raise ValueError(f"Invalid device '{device}'. Use 'cpu' or 'cuda' (or 'gpu').")
 
-    base_dir = str(out_cfg.get("base_dir", "results/week1"))
+    base_dir = str(out_cfg.get("base_dir", "results/week2"))
     save_every = int(out_cfg.get("save_every", 10))  # don't save every step for FPS tests
 
     # ---- reproducibility ----
+    # NOTE: SimState uses its own NumPy RNG seeded from `seed` when initializing.
+    # Keeping np.random.seed here is fine for other parts of the pipeline.
     np.random.seed(seed)
 
     # ---- output folder ----
@@ -49,7 +54,7 @@ def run_simulation(config: dict):
     with open(out_dir / "config_used.yaml", "w", encoding="utf-8") as f:
         yaml.safe_dump(config, f)
 
-    print("\n=== Week 1 Run ===")
+    print("\n=== Week 2 Run (Persistent SimState) ===")
     print(f"device     : {device}")
     print(f"seed       : {seed}")
     print(f"steps      : {steps}")
@@ -62,7 +67,18 @@ def run_simulation(config: dict):
     timing_path = out_dir / "timing.csv"
     timing_file = open(timing_path, "w", newline="", encoding="utf-8")
     writer = csv.writer(timing_file)
-    writer.writerow(["step", "run_step_sec", "to_numpy_sec", "total_step_sec", "saved"])
+    writer.writerow(["step", "step_state_sec", "to_numpy_sec", "total_step_sec", "saved"])
+
+    # ---- create persistent state ONCE (Week 2 core) ----
+    # IMPORTANT: this allocates positions/velocities only once and keeps them across steps.
+    state = create_state(config, device=device)
+
+    # sanity print (safe)
+    try:
+        print(f"[init] state.positions.device = {state.positions.device}")
+        print(f"[init] state.positions.shape  = {state.positions.shape}")
+    except Exception:
+        pass
 
     # Store only saved frames (keeps memory reasonable)
     saved_positions = []
@@ -73,43 +89,37 @@ def run_simulation(config: dict):
     for i in range(steps):
         t_step0 = time.perf_counter()
 
-        # 1) compute step (GPU/CPU)
+        # 1) compute step (GPU/CPU) IN-PLACE
         t0 = time.perf_counter()
-        positions = run_step(
-            device=device,
-            num_agents=num_agents,
-            dt=dt,
-            geom_cfg=geom_cfg,
-            flow_cfg=flow_cfg,
-            seed=seed,
-            debug_print=False,  # IMPORTANT: no array printing
-        )
-        t_run_step = time.perf_counter() - t0
+        step_state(state, dt=dt, cfg=config, debug_print=False)
+        t_step_state = time.perf_counter() - t0
 
         # 2) only copy to numpy when saving (IMPORTANT for FPS)
         saved = 0
         t_to_numpy = 0.0
 
+        # Keep your exact saving rule from Week 1:
+        # save on first step, every save_every, and last step
         if save_every > 0 and ((i + 1) % save_every == 0 or i == 0 or i == steps - 1):
             t0 = time.perf_counter()
-            pos_np = positions.numpy()
+            pos_np = state.positions.numpy()  # sync/copy only when saving
             t_to_numpy = time.perf_counter() - t0
 
             saved_positions.append(pos_np)
             saved_steps.append(i)
             saved = 1
 
-            # optional lightweight checkpoint save
+            # lightweight checkpoint save (same as Week 1)
             np.save(out_dir / "positions_saved_steps.npy", np.array(saved_steps, dtype=np.int32))
             np.save(out_dir / "positions_saved.npy", np.stack(saved_positions, axis=0))
 
         t_total_step = time.perf_counter() - t_step0
-        writer.writerow([i, t_run_step, t_to_numpy, t_total_step, saved])
+        writer.writerow([i, t_step_state, t_to_numpy, t_total_step, saved])
 
         # Print just once (safe)
         if i == 0:
             try:
-                print("positions shape:", positions.shape)
+                print("positions shape:", state.positions.shape)
             except Exception:
                 pass
 
