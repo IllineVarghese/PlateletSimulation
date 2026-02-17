@@ -38,7 +38,7 @@ def run_simulation(config: dict):
     if device not in ("cpu", "cuda"):
         raise ValueError(f"Invalid device '{device}'. Use 'cpu' or 'cuda' (or 'gpu').")
 
-    base_dir = str(out_cfg.get("base_dir", "results/week2"))
+    base_dir = str(out_cfg.get("base_dir", "results/week3"))
     save_every = int(out_cfg.get("save_every", 10))  # don't save every step for FPS tests
 
     # ---- reproducibility ----
@@ -54,7 +54,7 @@ def run_simulation(config: dict):
     with open(out_dir / "config_used.yaml", "w", encoding="utf-8") as f:
         yaml.safe_dump(config, f)
 
-    print("\n=== Week 2 Run (Persistent SimState) ===")
+    print("\n=== Week 3 Run (Persistent SimState) ===")
     print(f"device     : {device}")
     print(f"seed       : {seed}")
     print(f"steps      : {steps}")
@@ -83,6 +83,7 @@ def run_simulation(config: dict):
     # Store only saved frames (keeps memory reasonable)
     saved_positions = []
     saved_steps = []
+    saved_activation = []
 
     t_run0 = time.perf_counter()
 
@@ -102,16 +103,25 @@ def run_simulation(config: dict):
         # save on first step, every save_every, and last step
         if save_every > 0 and ((i + 1) % save_every == 0 or i == 0 or i == steps - 1):
             t0 = time.perf_counter()
-            pos_np = state.positions.numpy()  # sync/copy only when saving
+
+            # copy positions
+            pos_np = state.positions.numpy()
+
+            # copy activation
+            act_np = state.activation.numpy()
+
             t_to_numpy = time.perf_counter() - t0
 
             saved_positions.append(pos_np)
+            saved_activation.append(act_np)
             saved_steps.append(i)
-            saved = 1
+            
 
             # lightweight checkpoint save (same as Week 1)
             np.save(out_dir / "positions_saved_steps.npy", np.array(saved_steps, dtype=np.int32))
             np.save(out_dir / "positions_saved.npy", np.stack(saved_positions, axis=0))
+            np.save(out_dir / "activation_saved.npy", np.stack(saved_activation, axis=0))
+
 
         t_total_step = time.perf_counter() - t_step0
         writer.writerow([i, t_step_state, t_to_numpy, t_total_step, saved])

@@ -15,5 +15,5 @@ flow:
   max_velocity: 1.0
 
 output:
-  base_dir: results/week2
+  base_dir: results/week3
   save_every: 100
