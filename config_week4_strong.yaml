@@ -15,13 +15,13 @@ flow:
   max_velocity: 1.0
 
 output:
-  base_dir: results/week3
+  base_dir: results/week4/strong
   save_every: 100
 
 activation:
   near_wall_dist_frac: 0.10
   activation_rate: 0.5
-  decay_rate: 0.05
+  decay_rate: 0.5
 
 adhesion:
   enabled: true

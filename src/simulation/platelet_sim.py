@@ -38,7 +38,7 @@ def run_simulation(config: dict):
     if device not in ("cpu", "cuda"):
         raise ValueError(f"Invalid device '{device}'. Use 'cpu' or 'cuda' (or 'gpu').")
 
-    base_dir = str(out_cfg.get("base_dir", "results/week3"))
+    base_dir = str(out_cfg.get("base_dir", "results/run"))
     save_every = int(out_cfg.get("save_every", 10))  # don't save every step for FPS tests
 
     # ---- reproducibility ----
@@ -54,7 +54,7 @@ def run_simulation(config: dict):
     with open(out_dir / "config_used.yaml", "w", encoding="utf-8") as f:
         yaml.safe_dump(config, f)
 
-    print("\n=== Week 3 Run (Persistent SimState) ===")
+    print("\n=== Run (Persistent SimState) ===")
     print(f"device     : {device}")
     print(f"seed       : {seed}")
     print(f"steps      : {steps}")
@@ -116,6 +116,7 @@ def run_simulation(config: dict):
             saved_activation.append(act_np)
             saved_steps.append(i)
             
+            saved = 1  # <-- ADD THIS
 
             # lightweight checkpoint save (same as Week 1)
             np.save(out_dir / "positions_saved_steps.npy", np.array(saved_steps, dtype=np.int32))
