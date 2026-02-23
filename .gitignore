@@ -17,9 +17,13 @@ Thumbs.db
 data/
 
 # Simulation outputs
-results/
 results/**
+
+# Allow Week 4 deliverables
+!results/week4/
+!results/week4/summary.csv
+!results/week4/*.mp4
+
+# Still ignore heavy raw outputs
 *.npy
 *.png
-*.mp4
-*.csv
