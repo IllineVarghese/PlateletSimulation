@@ -1,0 +1,32 @@
+simulation:
+  seed: 42
+  num_agents: 1000
+  dt: 0.001
+  steps: 3000
+  device: gpu
+
+geometry:
+  type: cylinder
+  radius: 1.0
+  length: 10.0
+
+flow:
+  type: poiseuille
+  max_velocity: 0.5   # LOW SHEAR
+
+activation:
+  near_wall_dist_frac: 0.10
+  activation_rate: 0.5
+  decay_rate: 0.5
+
+adhesion:
+  enabled: true
+  act_threshold: 0.02
+  stick_factor: 0.2   # keep fixed (medium adhesion)
+
+wall:
+  restitution: 0.0
+
+output:
+  base_dir: results/shear/low
+  save_every: 10
