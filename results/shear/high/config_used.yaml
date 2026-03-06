@@ -1,0 +1,26 @@
+activation:
+  activation_rate: 0.5
+  decay_rate: 0.5
+  near_wall_dist_frac: 0.1
+adhesion:
+  act_threshold: 0.02
+  enabled: true
+  stick_factor: 0.2
+flow:
+  max_velocity: 2.0
+  type: poiseuille
+geometry:
+  length: 10.0
+  radius: 1.0
+  type: cylinder
+output:
+  base_dir: results/shear/high
+  save_every: 10
+simulation:
+  device: gpu
+  dt: 0.001
+  num_agents: 1000
+  seed: 42
+  steps: 3000
+wall:
+  restitution: 0.0

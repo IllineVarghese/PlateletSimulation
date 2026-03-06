@@ -1,0 +1,16 @@
+flow:
+  max_velocity: 1.0
+  type: poiseuille
+geometry:
+  length: 10.0
+  radius: 1.0
+  type: cylinder
+output:
+  base_dir: results/week2
+  save_every: 100
+simulation:
+  device: gpu
+  dt: 0.001
+  num_agents: 1000
+  seed: 42
+  steps: 500
