@@ -37,3 +37,21 @@ def grn_step(model, state, dt=0.1):
         new_state[i] = state[i] + dt * (target - state[i])
 
     return new_state
+
+def run_grn(model, initial_state, steps=10):
+    """
+    Run GRN dynamics for multiple time steps.
+
+    model : GRNModel
+    initial_state : list of node values
+    steps : number of simulation steps
+    """
+
+    state = initial_state.copy()
+    history = [state]
+
+    for _ in range(steps):
+        state = grn_step(model, state)
+        history.append(state)
+
+    return history
