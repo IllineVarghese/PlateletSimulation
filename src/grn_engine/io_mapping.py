@@ -25,3 +25,18 @@ def apply_sensor_inputs(model, state, sensors):
         new_state[idx] = value
 
     return new_state
+
+def read_actuator_outputs(model, state):
+    """
+    Read GRN output nodes into a dictionary.
+
+    model : GRNModel
+    state : list of node values
+    """
+    outputs = {}
+
+    for idx in model.output_indices:
+        name = model.node_names[idx]
+        outputs[name] = state[idx]
+
+    return outputs

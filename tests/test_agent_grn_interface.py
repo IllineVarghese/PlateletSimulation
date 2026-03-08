@@ -16,3 +16,15 @@ def test_apply_sensor_inputs():
     new_state = apply_sensor_inputs(model, state, sensors)
 
     assert new_state[0] == 1.0
+
+from src.grn_engine.io_mapping import read_actuator_outputs
+
+
+def test_read_actuator_outputs():
+    model = load_graphml("data/networks/test_minimal.graphml")
+
+    state = [1.0, 0.5, 0.8]
+
+    outputs = read_actuator_outputs(model, state)
+
+    assert outputs["OutStickiness"] == 0.8    
