@@ -28,3 +28,26 @@ def test_run_grn_multiple_steps():
     history = run_grn(model, initial_state, steps=5)
 
     assert len(history) == 6
+
+def test_run_grn_stays_bounded():
+    model = load_graphml("data/networks/test_minimal.graphml")
+
+    initial_state = [1.0, 0.0, 0.0]
+
+    history = run_grn(model, initial_state, steps=20)
+
+    for state in history:
+        for value in state:
+            assert 0.0 <= value <= 1.0
+
+def test_output_increases_over_time():
+    model = load_graphml("data/networks/test_minimal.graphml")
+
+    initial_state = [1.0, 0.0, 0.0]
+
+    history = run_grn(model, initial_state, steps=10)
+
+    first_output = history[0][2]
+    last_output = history[-1][2]
+
+    assert last_output > first_output                
