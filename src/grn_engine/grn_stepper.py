@@ -32,7 +32,8 @@ def grn_step(model, state, dt=0.1):
                 weight = model.edges_weight[e]
                 input_sum += weight * state[src]
 
-        target = sigmoid(input_sum)
+        target = sigmoid(input_sum - 1.0)
+   
 
         new_state[i] = state[i] + dt * (target - state[i])
 
