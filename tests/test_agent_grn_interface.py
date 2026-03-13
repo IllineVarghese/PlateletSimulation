@@ -51,3 +51,24 @@ def test_run_grn_pipeline():
     assert len(history) == 11
     assert final_state[0] == 1.0
     assert outputs["OutStickiness"] > 0.0    
+
+def test_collision_increases_stickiness_over_time():
+    model = load_graphml("data/networks/test_minimal.graphml")
+
+    initial_state = [0.0, 0.0, 0.0]
+
+    sensors = {
+        "InCollisionImpulse": 1.0
+    }
+
+    final_state, outputs, history = run_grn_pipeline(
+        model,
+        initial_state,
+        sensors,
+        steps=10
+    )
+
+    stickiness_values = [state[2] for state in history]
+
+    assert stickiness_values[0] == 0.0
+    assert stickiness_values[-1] > stickiness_values[0]    
