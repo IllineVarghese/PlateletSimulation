@@ -40,3 +40,18 @@ def read_actuator_outputs(model, state):
         outputs[name] = state[idx]
 
     return outputs
+
+from src.grn_engine.grn_stepper import run_grn
+
+
+def run_grn_pipeline(model, initial_state, sensors, steps=10):
+
+    state_with_inputs = apply_sensor_inputs(model, initial_state, sensors)
+
+    history = run_grn(model, state_with_inputs, steps)
+
+    final_state = history[-1]
+
+    outputs = read_actuator_outputs(model, final_state)
+
+    return final_state, outputs, history
