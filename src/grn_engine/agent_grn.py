@@ -25,14 +25,16 @@ class GRNAgent:
     def step(self):
 
         final_state, outputs, history = run_grn_pipeline(
-            self.model,
-            self.state,
-            self.sensors,
-            steps=1
+             self.model,
+             self.state,
+             self.sensors,
+             steps=1
         )
 
         self.state = final_state
         self.outputs.update(outputs)
+
+        return outputs
 
     def get_output(self, name):
         return self.outputs.get(name, 0.0)
