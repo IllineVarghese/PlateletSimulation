@@ -128,20 +128,20 @@ def run_step(device: str = "cpu"):
 
         stickiness = agent.get_output("OutStickiness")
 
-        # current platelet y-position
         current_pos = positions.numpy()[i]
         y_pos = current_pos[1]
 
-        # simple wall proximity rule
-        near_wall = (y_pos < 0.3) or (y_pos > 0.7)
+        # wider wall region
+        near_wall = (y_pos < 0.4) or (y_pos > 0.6)
 
-    if near_wall:
-          adhesion_strength = min(1.0, float(stickiness) * 1.5)
-    else:
-          adhesion_strength = min(1.0, float(stickiness))
+        if near_wall:
+           adhesion_strength = min(1.0, float(stickiness) * 3.0)
+        else:
+           adhesion_strength = min(1.0, float(stickiness))
 
-    adhesion_strength = max(0.0, adhesion_strength)
-    adhesion_np[i] = adhesion_strength
+        adhesion_strength = max(0.0, adhesion_strength)
+        adhesion_np[i] = adhesion_strength
+        
     print(f"Platelet {i}: y={y_pos:.3f}, near_wall={near_wall}, stickiness={stickiness:.4f}, adhesion={adhesion_strength:.4f}")
 
     adhesion_strengths = wp.array(
