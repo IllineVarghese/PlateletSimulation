@@ -45,7 +45,7 @@ def _initialize_sim(device: str = "cpu"):
     else:
         wp.set_device("cpu")
 
-    num_platelets = 10
+    num_platelets = 80
     dt = 0.01
 
     rng = np.random.default_rng(42)
@@ -141,7 +141,7 @@ def run_step(device: str = "cpu"):
 
         adhesion_strength = max(0.0, adhesion_strength)
         adhesion_np[i] = adhesion_strength
-        
+
     print(f"Platelet {i}: y={y_pos:.3f}, near_wall={near_wall}, stickiness={stickiness:.4f}, adhesion={adhesion_strength:.4f}")
 
     adhesion_strengths = wp.array(
