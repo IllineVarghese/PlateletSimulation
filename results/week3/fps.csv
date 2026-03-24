@@ -1,2 +1,0 @@
-steps,runtime_sec,fps,device,seed,num_agents,dt
-500,0.1377523000119254,3629.7034601724567,cuda,42,1000,0.001

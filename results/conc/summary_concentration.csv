@@ -1,4 +1,0 @@
-run,num_agents,near_wall_dist_frac,radius,act_threshold,frac_near_last,frac_near_mean,mean_act_near_last,mean_act_near_mean,dz_near_sel,sel_count
-low,500,0.1,1.0,0.02,0.168,0.168,0.2499985247850418,0.12508295476436615,0.0,84
-medium,1000,0.1,1.0,0.02,0.185,0.185,0.2499985545873642,0.12508295476436615,0.0,185
-high,2000,0.1,1.0,0.02,0.197,0.197,0.2499985545873642,0.12508295476436615,0.0,394
