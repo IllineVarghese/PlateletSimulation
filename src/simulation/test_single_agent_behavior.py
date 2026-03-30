@@ -21,6 +21,8 @@ GRN_OUTPUT_NODES = {
 CHEMICAL_SOURCE_POSITION = np.array([1.5, 0.0, 0.0], dtype=float)
 CHEMICAL_SOURCE_RADIUS = 0.75
 
+VESSEL_RADIUS = 1.0
+
 
 def clamp(value: float, min_value: float = 0.0, max_value: float = 1.0) -> float:
     return max(min_value, min(max_value, value))
@@ -45,13 +47,13 @@ class DummyGRN:
         chemical = self.nodes.get(GRN_INPUT_NODES["chemical_concentration"], 0.0)
         shear = self.nodes.get(GRN_INPUT_NODES["shear_stress"], 0.0)
 
-        # Day 3 placeholder logic:
-        # collision drives stickiness strongly
-        # chemical drives secretion strongly
-        # chemical also contributes a little to morphology
-        stickiness = clamp(0.8 * collision + 0.1 * chemical + 0.1 * shear)
-        morphology = clamp(0.2 * collision + 0.5 * chemical + 0.3 * shear)
-        secretion_rate = clamp(0.2 * collision + 0.7 * chemical + 0.1 * shear)
+        # Day 4 placeholder logic:
+        # collision strongly affects stickiness
+        # chemical strongly affects secretion
+        # shear strongly affects morphology and contributes to stickiness
+        stickiness = clamp(0.6 * collision + 0.15 * chemical + 0.25 * shear)
+        morphology = clamp(0.15 * collision + 0.35 * chemical + 0.50 * shear)
+        secretion_rate = clamp(0.15 * collision + 0.65 * chemical + 0.20 * shear)
 
         self.nodes[GRN_OUTPUT_NODES["stickiness"]] = stickiness
         self.nodes[GRN_OUTPUT_NODES["morphology"]] = morphology
@@ -77,7 +79,8 @@ class AgentOutputs:
 
 class GRNAgent:
     def __init__(self):
-        self.position = np.array([0.0, 0.0, 0.0], dtype=float)
+        # Off-center start so Day 4 shear is nonzero
+        self.position = np.array([0.0, 0.4, 0.0], dtype=float)
         self.velocity = np.array([1.0, 0.0, 0.0], dtype=float)
 
         self.grn = DummyGRN()
@@ -97,6 +100,8 @@ class GRNAgent:
             "secretion_rate": [],
             "speed": [],
             "x_position": [],
+            "y_position": [],
+            "radial_distance": [],
         }
 
 
@@ -122,8 +127,7 @@ def compute_collision_impulse(agent: GRNAgent, step: int) -> float:
 
 def compute_chemical_concentration(agent: GRNAgent, step: int) -> float:
     """
-    Day 3 version:
-    concentration depends on distance to a fixed chemical source.
+    Chemical concentration from distance to a fixed source.
     """
     distance = np.linalg.norm(agent.position - CHEMICAL_SOURCE_POSITION)
     concentration = 1.0 - (distance / CHEMICAL_SOURCE_RADIUS)
@@ -132,10 +136,15 @@ def compute_chemical_concentration(agent: GRNAgent, step: int) -> float:
 
 def compute_shear_stress(agent: GRNAgent, step: int) -> float:
     """
-    Placeholder for Day 3.
-    Keep zero for now.
+    Day 4 version:
+    simple cylindrical shear proxy from radial distance.
+
+    Centerline -> low shear
+    Near vessel wall -> high shear
     """
-    return 0.0
+    radial_distance = np.linalg.norm(agent.position[1:3])  # sqrt(y^2 + z^2)
+    normalized_shear = radial_distance / VESSEL_RADIUS
+    return clamp(normalized_shear)
 
 
 def write_sensors_to_grn(agent: GRNAgent) -> None:
@@ -164,7 +173,10 @@ def read_grn_outputs(agent: GRNAgent) -> None:
 
 
 def apply_stickiness(agent: GRNAgent, dt: float) -> None:
-    damping_factor = 1.0 - 0.5 * agent.outputs.stickiness
+    """
+    Mild damping to avoid speed collapsing too fast.
+    """
+    damping_factor = 1.0 - 0.1 * agent.outputs.stickiness
     damping_factor = max(0.0, damping_factor)
     agent.velocity *= damping_factor
 
@@ -188,6 +200,8 @@ def update_position(agent: GRNAgent, dt: float) -> None:
 
 
 def record_agent_debug(agent: GRNAgent, step: int) -> None:
+    radial_distance = float(np.linalg.norm(agent.position[1:3]))
+
     agent.debug_history["step"].append(step)
     agent.debug_history["collision_impulse"].append(agent.sensors.collision_impulse)
     agent.debug_history["chemical_concentration"].append(agent.sensors.chemical_concentration)
@@ -197,6 +211,8 @@ def record_agent_debug(agent: GRNAgent, step: int) -> None:
     agent.debug_history["secretion_rate"].append(agent.outputs.secretion_rate)
     agent.debug_history["speed"].append(float(np.linalg.norm(agent.velocity)))
     agent.debug_history["x_position"].append(float(agent.position[0]))
+    agent.debug_history["y_position"].append(float(agent.position[1]))
+    agent.debug_history["radial_distance"].append(radial_distance)
 
 
 def print_key_results(agent: GRNAgent) -> None:
@@ -205,6 +221,7 @@ def print_key_results(agent: GRNAgent) -> None:
     print("Final speed:", agent.debug_history["speed"][-1])
     print("Max collision impulse:", max(agent.debug_history["collision_impulse"]))
     print("Max chemical concentration:", max(agent.debug_history["chemical_concentration"]))
+    print("Max shear stress:", max(agent.debug_history["shear_stress"]))
     print("Max stickiness:", max(agent.debug_history["stickiness"]))
     print("Max morphology:", max(agent.debug_history["morphology"]))
     print("Max secretion rate:", max(agent.debug_history["secretion_rate"]))
