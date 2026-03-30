@@ -1,6 +1,8 @@
 # src/simulation/test_single_agent_behavior.py
 
+import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 # -----------------------------
@@ -20,8 +22,11 @@ GRN_OUTPUT_NODES = {
 
 CHEMICAL_SOURCE_POSITION = np.array([1.5, 0.0, 0.0], dtype=float)
 CHEMICAL_SOURCE_RADIUS = 0.75
-
 VESSEL_RADIUS = 1.0
+
+RESULTS_DIR = "results"
+PLOT_PATH = os.path.join(RESULTS_DIR, "week1_day5_single_agent_behavior.png")
+CSV_PATH = os.path.join(RESULTS_DIR, "week1_day5_single_agent_behavior.csv")
 
 
 def clamp(value: float, min_value: float = 0.0, max_value: float = 1.0) -> float:
@@ -47,10 +52,6 @@ class DummyGRN:
         chemical = self.nodes.get(GRN_INPUT_NODES["chemical_concentration"], 0.0)
         shear = self.nodes.get(GRN_INPUT_NODES["shear_stress"], 0.0)
 
-        # Day 4 placeholder logic:
-        # collision strongly affects stickiness
-        # chemical strongly affects secretion
-        # shear strongly affects morphology and contributes to stickiness
         stickiness = clamp(0.6 * collision + 0.15 * chemical + 0.25 * shear)
         morphology = clamp(0.15 * collision + 0.35 * chemical + 0.50 * shear)
         secretion_rate = clamp(0.15 * collision + 0.65 * chemical + 0.20 * shear)
@@ -79,7 +80,6 @@ class AgentOutputs:
 
 class GRNAgent:
     def __init__(self):
-        # Off-center start so Day 4 shear is nonzero
         self.position = np.array([0.0, 0.4, 0.0], dtype=float)
         self.velocity = np.array([1.0, 0.0, 0.0], dtype=float)
 
@@ -106,7 +106,7 @@ class GRNAgent:
 
 
 # -----------------------------
-# Phase 3 helper functions
+# Helper functions
 # -----------------------------
 def reset_sensors(agent: GRNAgent) -> None:
     agent.sensors.collision_impulse = 0.0
@@ -115,9 +115,6 @@ def reset_sensors(agent: GRNAgent) -> None:
 
 
 def compute_collision_impulse(agent: GRNAgent, step: int) -> float:
-    """
-    Controlled collision stimulus.
-    """
     if 20 <= step <= 30:
         return 1.0
     if 31 <= step <= 40:
@@ -126,40 +123,21 @@ def compute_collision_impulse(agent: GRNAgent, step: int) -> float:
 
 
 def compute_chemical_concentration(agent: GRNAgent, step: int) -> float:
-    """
-    Chemical concentration from distance to a fixed source.
-    """
     distance = np.linalg.norm(agent.position - CHEMICAL_SOURCE_POSITION)
     concentration = 1.0 - (distance / CHEMICAL_SOURCE_RADIUS)
     return clamp(concentration)
 
 
 def compute_shear_stress(agent: GRNAgent, step: int) -> float:
-    """
-    Day 4 version:
-    simple cylindrical shear proxy from radial distance.
-
-    Centerline -> low shear
-    Near vessel wall -> high shear
-    """
-    radial_distance = np.linalg.norm(agent.position[1:3])  # sqrt(y^2 + z^2)
+    radial_distance = np.linalg.norm(agent.position[1:3])
     normalized_shear = radial_distance / VESSEL_RADIUS
     return clamp(normalized_shear)
 
 
 def write_sensors_to_grn(agent: GRNAgent) -> None:
-    agent.grn.set_node(
-        GRN_INPUT_NODES["collision_impulse"],
-        clamp(agent.sensors.collision_impulse),
-    )
-    agent.grn.set_node(
-        GRN_INPUT_NODES["chemical_concentration"],
-        clamp(agent.sensors.chemical_concentration),
-    )
-    agent.grn.set_node(
-        GRN_INPUT_NODES["shear_stress"],
-        clamp(agent.sensors.shear_stress),
-    )
+    agent.grn.set_node(GRN_INPUT_NODES["collision_impulse"], clamp(agent.sensors.collision_impulse))
+    agent.grn.set_node(GRN_INPUT_NODES["chemical_concentration"], clamp(agent.sensors.chemical_concentration))
+    agent.grn.set_node(GRN_INPUT_NODES["shear_stress"], clamp(agent.sensors.shear_stress))
 
 
 def step_agent_grn(agent: GRNAgent, dt: float) -> None:
@@ -173,9 +151,6 @@ def read_grn_outputs(agent: GRNAgent) -> None:
 
 
 def apply_stickiness(agent: GRNAgent, dt: float) -> None:
-    """
-    Mild damping to avoid speed collapsing too fast.
-    """
     damping_factor = 1.0 - 0.1 * agent.outputs.stickiness
     damping_factor = max(0.0, damping_factor)
     agent.velocity *= damping_factor
@@ -215,6 +190,41 @@ def record_agent_debug(agent: GRNAgent, step: int) -> None:
     agent.debug_history["radial_distance"].append(radial_distance)
 
 
+def save_debug_csv(agent: GRNAgent, csv_path: str) -> None:
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+
+    headers = list(agent.debug_history.keys())
+    rows = zip(*(agent.debug_history[key] for key in headers))
+
+    with open(csv_path, "w", encoding="utf-8") as f:
+        f.write(",".join(headers) + "\n")
+        for row in rows:
+            f.write(",".join(str(value) for value in row) + "\n")
+
+
+def save_debug_plot(agent: GRNAgent, plot_path: str) -> None:
+    os.makedirs(os.path.dirname(plot_path), exist_ok=True)
+
+    steps = agent.debug_history["step"]
+
+    plt.figure(figsize=(12, 7))
+    plt.plot(steps, agent.debug_history["collision_impulse"], label="collision_impulse")
+    plt.plot(steps, agent.debug_history["chemical_concentration"], label="chemical_concentration")
+    plt.plot(steps, agent.debug_history["shear_stress"], label="shear_stress")
+    plt.plot(steps, agent.debug_history["stickiness"], label="stickiness")
+    plt.plot(steps, agent.debug_history["morphology"], label="morphology")
+    plt.plot(steps, agent.debug_history["secretion_rate"], label="secretion_rate")
+    plt.plot(steps, agent.debug_history["speed"], label="speed")
+
+    plt.xlabel("Step")
+    plt.ylabel("Value")
+    plt.title("Week 1 Day 5: Single-Agent Sensor-GRN-Behavior Validation")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(plot_path, dpi=150)
+    plt.close()
+
+
 def print_key_results(agent: GRNAgent) -> None:
     print("Final position:", agent.position)
     print("Final velocity:", agent.velocity)
@@ -227,6 +237,8 @@ def print_key_results(agent: GRNAgent) -> None:
     print("Max secretion rate:", max(agent.debug_history["secretion_rate"]))
     print("Final morphology level:", agent.morphology_level)
     print("Total secreted amount:", agent.secreted_amount)
+    print("Saved CSV:", CSV_PATH)
+    print("Saved plot:", PLOT_PATH)
 
 
 # -----------------------------
@@ -241,21 +253,17 @@ def run_simulation():
     for step in range(steps):
         reset_sensors(agent)
 
-        # Compute sensors
         agent.sensors.collision_impulse = compute_collision_impulse(agent, step)
         agent.sensors.chemical_concentration = compute_chemical_concentration(agent, step)
         agent.sensors.shear_stress = compute_shear_stress(agent, step)
 
-        # GRN update
         write_sensors_to_grn(agent)
         step_agent_grn(agent, dt)
         read_grn_outputs(agent)
 
-        # Apply behavior
         apply_agent_outputs(agent, dt)
         update_position(agent, dt)
 
-        # Record debug
         record_agent_debug(agent, step)
 
     return agent
@@ -263,4 +271,6 @@ def run_simulation():
 
 if __name__ == "__main__":
     agent = run_simulation()
+    save_debug_csv(agent, CSV_PATH)
+    save_debug_plot(agent, PLOT_PATH)
     print_key_results(agent)
