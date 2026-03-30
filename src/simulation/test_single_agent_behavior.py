@@ -18,6 +18,9 @@ GRN_OUTPUT_NODES = {
     "secretion_rate": "OutSecretionRate",
 }
 
+CHEMICAL_SOURCE_POSITION = np.array([1.5, 0.0, 0.0], dtype=float)
+CHEMICAL_SOURCE_RADIUS = 0.75
+
 
 def clamp(value: float, min_value: float = 0.0, max_value: float = 1.0) -> float:
     return max(min_value, min(max_value, value))
@@ -42,10 +45,13 @@ class DummyGRN:
         chemical = self.nodes.get(GRN_INPUT_NODES["chemical_concentration"], 0.0)
         shear = self.nodes.get(GRN_INPUT_NODES["shear_stress"], 0.0)
 
-        # Simple placeholder logic for testing the pipeline
+        # Day 3 placeholder logic:
+        # collision drives stickiness strongly
+        # chemical drives secretion strongly
+        # chemical also contributes a little to morphology
         stickiness = clamp(0.8 * collision + 0.1 * chemical + 0.1 * shear)
-        morphology = clamp(0.5 * collision + 0.3 * shear)
-        secretion_rate = clamp(0.4 * collision + 0.4 * chemical)
+        morphology = clamp(0.2 * collision + 0.5 * chemical + 0.3 * shear)
+        secretion_rate = clamp(0.2 * collision + 0.7 * chemical + 0.1 * shear)
 
         self.nodes[GRN_OUTPUT_NODES["stickiness"]] = stickiness
         self.nodes[GRN_OUTPUT_NODES["morphology"]] = morphology
@@ -95,7 +101,7 @@ class GRNAgent:
 
 
 # -----------------------------
-# Phase 3 Day 2 helper functions
+# Phase 3 helper functions
 # -----------------------------
 def reset_sensors(agent: GRNAgent) -> None:
     agent.sensors.collision_impulse = 0.0
@@ -105,10 +111,7 @@ def reset_sensors(agent: GRNAgent) -> None:
 
 def compute_collision_impulse(agent: GRNAgent, step: int) -> float:
     """
-    Day 2 version:
-    controlled fake collision stimulus for debugging
-
-    You can replace this later with real collision physics.
+    Controlled collision stimulus.
     """
     if 20 <= step <= 30:
         return 1.0
@@ -119,15 +122,17 @@ def compute_collision_impulse(agent: GRNAgent, step: int) -> float:
 
 def compute_chemical_concentration(agent: GRNAgent, step: int) -> float:
     """
-    Placeholder for Day 2.
-    Keep zero for now.
+    Day 3 version:
+    concentration depends on distance to a fixed chemical source.
     """
-    return 0.0
+    distance = np.linalg.norm(agent.position - CHEMICAL_SOURCE_POSITION)
+    concentration = 1.0 - (distance / CHEMICAL_SOURCE_RADIUS)
+    return clamp(concentration)
 
 
 def compute_shear_stress(agent: GRNAgent, step: int) -> float:
     """
-    Placeholder for Day 2.
+    Placeholder for Day 3.
     Keep zero for now.
     """
     return 0.0
@@ -159,26 +164,16 @@ def read_grn_outputs(agent: GRNAgent) -> None:
 
 
 def apply_stickiness(agent: GRNAgent, dt: float) -> None:
-    """
-    Day 2 actuator:
-    stickiness increases damping / slows the agent.
-    """
     damping_factor = 1.0 - 0.5 * agent.outputs.stickiness
     damping_factor = max(0.0, damping_factor)
     agent.velocity *= damping_factor
 
 
 def apply_morphology(agent: GRNAgent) -> None:
-    """
-    Placeholder actuator for now.
-    """
     agent.morphology_level = agent.outputs.morphology
 
 
 def apply_secretion(agent: GRNAgent, dt: float) -> None:
-    """
-    Placeholder actuator for now.
-    """
     agent.secreted_amount += agent.outputs.secretion_rate * dt
 
 
@@ -209,7 +204,10 @@ def print_key_results(agent: GRNAgent) -> None:
     print("Final velocity:", agent.velocity)
     print("Final speed:", agent.debug_history["speed"][-1])
     print("Max collision impulse:", max(agent.debug_history["collision_impulse"]))
+    print("Max chemical concentration:", max(agent.debug_history["chemical_concentration"]))
     print("Max stickiness:", max(agent.debug_history["stickiness"]))
+    print("Max morphology:", max(agent.debug_history["morphology"]))
+    print("Max secretion rate:", max(agent.debug_history["secretion_rate"]))
     print("Final morphology level:", agent.morphology_level)
     print("Total secreted amount:", agent.secreted_amount)
 
