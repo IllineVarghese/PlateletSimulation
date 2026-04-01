@@ -1,15 +1,10 @@
-# src/visualization/video_week1_single_agent_cylinder.py
-
 import os
 import numpy as np
 import pyvista as pv
 
 
-# -----------------------------
-# Configuration
-# -----------------------------
 RESULTS_DIR = "results"
-OUTPUT_GIF = os.path.join(RESULTS_DIR, "week2_day1_single_agent_cylinder_3d.gif")
+OUTPUT_MOVIE = os.path.join(RESULTS_DIR, "week2_day1_single_agent_cylinder_3d.mp4")
 
 GRN_INPUT_NODES = {
     "collision_impulse": "InCollisionImpulse",
@@ -36,9 +31,6 @@ def clamp(value: float, min_value: float = 0.0, max_value: float = 1.0) -> float
     return max(min_value, min(max_value, value))
 
 
-# -----------------------------
-# Temporary GRN placeholder
-# -----------------------------
 class DummyGRN:
     def __init__(self):
         self.nodes = {}
@@ -63,9 +55,6 @@ class DummyGRN:
         self.nodes[GRN_OUTPUT_NODES["secretion_rate"]] = secretion_rate
 
 
-# -----------------------------
-# Agent containers
-# -----------------------------
 class AgentSensors:
     def __init__(self):
         self.collision_impulse = 0.0
@@ -89,9 +78,6 @@ class GRNAgent:
         self.sensors = AgentSensors()
         self.outputs = AgentOutputs()
 
-        self.morphology_level = 0.0
-        self.secreted_amount = 0.0
-
         self.debug_history = {
             "step": [],
             "position_x": [],
@@ -107,9 +93,6 @@ class GRNAgent:
         }
 
 
-# -----------------------------
-# Simulation logic
-# -----------------------------
 def reset_sensors(agent: GRNAgent) -> None:
     agent.sensors.collision_impulse = 0.0
     agent.sensors.chemical_concentration = 0.0
@@ -152,24 +135,9 @@ def read_grn_outputs(agent: GRNAgent) -> None:
     agent.outputs.secretion_rate = clamp(agent.grn.get_node(GRN_OUTPUT_NODES["secretion_rate"]))
 
 
-def apply_stickiness(agent: GRNAgent, dt: float) -> None:
-    damping_factor = 1.0 - 0.1 * agent.outputs.stickiness
-    damping_factor = max(0.0, damping_factor)
-    agent.velocity *= damping_factor
-
-
-def apply_morphology(agent: GRNAgent) -> None:
-    agent.morphology_level = agent.outputs.morphology
-
-
-def apply_secretion(agent: GRNAgent, dt: float) -> None:
-    agent.secreted_amount += agent.outputs.secretion_rate * dt
-
-
 def apply_agent_outputs(agent: GRNAgent, dt: float) -> None:
-    apply_stickiness(agent, dt)
-    apply_morphology(agent)
-    apply_secretion(agent, dt)
+    damping_factor = max(0.0, 1.0 - 0.1 * agent.outputs.stickiness)
+    agent.velocity *= damping_factor
 
 
 def update_position(agent: GRNAgent, dt: float) -> None:
@@ -196,7 +164,6 @@ def run_simulation() -> GRNAgent:
 
     for step in range(STEPS):
         reset_sensors(agent)
-
         agent.sensors.collision_impulse = compute_collision_impulse(agent, step)
         agent.sensors.chemical_concentration = compute_chemical_concentration(agent, step)
         agent.sensors.shear_stress = compute_shear_stress(agent, step)
@@ -207,15 +174,11 @@ def run_simulation() -> GRNAgent:
 
         apply_agent_outputs(agent, DT)
         update_position(agent, DT)
-
         record_agent_debug(agent, step)
 
     return agent
 
 
-# -----------------------------
-# Geometry helpers
-# -----------------------------
 def make_vessel_surface():
     return pv.Cylinder(
         center=(VESSEL_LENGTH / 2.0, 0.0, 0.0),
@@ -241,6 +204,7 @@ def make_end_ring(x_pos: float, radius: float, n_points: int = 120):
 def make_flow_arrows():
     xs = np.linspace(0.5, VESSEL_LENGTH - 0.5, 5)
     ys = np.array([-0.45, 0.0, 0.45])
+
     pts = []
     vecs = []
 
@@ -259,11 +223,7 @@ def make_flow_arrows():
 
 
 def make_centerline():
-    points = np.array([
-        [0.0, 0.0, 0.0],
-        [VESSEL_LENGTH, 0.0, 0.0],
-    ])
-    return pv.Line(points[0], points[1], resolution=1)
+    return pv.Line((0.0, 0.0, 0.0), (VESSEL_LENGTH, 0.0, 0.0), resolution=1)
 
 
 def make_source_mesh():
@@ -283,10 +243,7 @@ def make_trail_mesh(history_x, history_y, history_z):
     return pv.Spline(points, len(points) * 5)
 
 
-# -----------------------------
-# Visualization
-# -----------------------------
-def render_gif(agent: GRNAgent, output_path: str) -> None:
+def render_movie(agent: GRNAgent, output_path: str) -> None:
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     vessel = make_vessel_surface()
@@ -298,21 +255,15 @@ def render_gif(agent: GRNAgent, output_path: str) -> None:
 
     plotter = pv.Plotter(off_screen=True, window_size=(1280, 820))
     plotter.set_background("white")
-    plotter.open_movie("results/week2_day1_single_agent_cylinder_3d.mp4")
+    plotter.open_movie(output_path, framerate=20)
 
-    # Vessel
     plotter.add_mesh(vessel, color="lightsteelblue", opacity=0.22, smooth_shading=True)
     plotter.add_mesh(inlet_ring, color="navy", line_width=3)
     plotter.add_mesh(outlet_ring, color="navy", line_width=3)
-
-    # Flow cues
     plotter.add_mesh(flow_arrows, color="deepskyblue")
     plotter.add_mesh(centerline, color="black", line_width=2)
-
-    # Chemical source
     plotter.add_mesh(source, color="red", smooth_shading=True)
 
-    # Axes and bounds
     plotter.show_axes()
     plotter.show_bounds(
         grid="front",
@@ -324,7 +275,7 @@ def render_gif(agent: GRNAgent, output_path: str) -> None:
         font_size=10,
     )
 
-    plotter.add_text("3D Single-Agent Blood Vessel View", font_size=14)
+    plotter.add_text("Week 2 Day 1: 3D Single-Agent Blood Vessel View", font_size=14)
 
     start_center = (
         agent.debug_history["position_x"][0],
@@ -346,9 +297,9 @@ def render_gif(agent: GRNAgent, output_path: str) -> None:
     trail_actor = None
 
     plotter.camera_position = [
-        (2.5, -4.4, 2.3),   # camera location
-        (2.5, 0.0, 0.0),    # focal point
-        (0.0, 0.0, 1.0),    # up direction
+        (2.5, -4.4, 2.3),
+        (2.5, 0.0, 0.0),
+        (0.0, 0.0, 1.0),
     ]
 
     n_steps = len(agent.debug_history["step"])
@@ -364,7 +315,6 @@ def render_gif(agent: GRNAgent, output_path: str) -> None:
         new_sphere = make_agent_sphere(center, stickiness)
         actor.mapper.SetInputData(new_sphere)
 
-        # Update trail
         if trail_actor is not None:
             plotter.remove_actor(trail_actor)
 
@@ -376,7 +326,6 @@ def render_gif(agent: GRNAgent, output_path: str) -> None:
         if trail is not None:
             trail_actor = plotter.add_mesh(trail, color="orange", line_width=4)
 
-        # Small camera orbit for better 3D feeling
         angle = 0.003 * i
         cam_x = 2.5 + 0.8 * np.cos(angle)
         cam_y = -4.4 + 0.8 * np.sin(angle)
@@ -399,10 +348,10 @@ def print_summary(agent: GRNAgent) -> None:
     print("Max chemical concentration:", max(agent.debug_history["chemical_concentration"]))
     print("Max shear stress:", max(agent.debug_history["shear_stress"]))
     print("Max stickiness:", max(agent.debug_history["stickiness"]))
-    print("Saved GIF:", OUTPUT_GIF)
+    print("Saved movie:", OUTPUT_MOVIE)
 
 
 if __name__ == "__main__":
     agent = run_simulation()
-    render_gif(agent, OUTPUT_GIF)
+    render_movie(agent, OUTPUT_MOVIE)
     print_summary(agent)
