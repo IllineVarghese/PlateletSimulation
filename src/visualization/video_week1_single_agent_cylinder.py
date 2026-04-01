@@ -1,0 +1,408 @@
+# src/visualization/video_week1_single_agent_cylinder.py
+
+import os
+import numpy as np
+import pyvista as pv
+
+
+# -----------------------------
+# Configuration
+# -----------------------------
+RESULTS_DIR = "results"
+OUTPUT_GIF = os.path.join(RESULTS_DIR, "week2_day1_single_agent_cylinder_3d.gif")
+
+GRN_INPUT_NODES = {
+    "collision_impulse": "InCollisionImpulse",
+    "chemical_concentration": "InChemicalConcentration",
+    "shear_stress": "InShearStress",
+}
+
+GRN_OUTPUT_NODES = {
+    "stickiness": "OutStickiness",
+    "morphology": "OutCellShapeChange",
+    "secretion_rate": "OutSecretionRate",
+}
+
+CHEMICAL_SOURCE_POSITION = np.array([1.5, 0.0, 0.0], dtype=float)
+CHEMICAL_SOURCE_RADIUS = 0.75
+VESSEL_RADIUS = 1.0
+VESSEL_LENGTH = 5.0
+
+DT = 0.1
+STEPS = 100
+
+
+def clamp(value: float, min_value: float = 0.0, max_value: float = 1.0) -> float:
+    return max(min_value, min(max_value, value))
+
+
+# -----------------------------
+# Temporary GRN placeholder
+# -----------------------------
+class DummyGRN:
+    def __init__(self):
+        self.nodes = {}
+
+    def set_node(self, name, value):
+        self.nodes[name] = float(value)
+
+    def get_node(self, name):
+        return float(self.nodes.get(name, 0.0))
+
+    def step(self, dt):
+        collision = self.nodes.get(GRN_INPUT_NODES["collision_impulse"], 0.0)
+        chemical = self.nodes.get(GRN_INPUT_NODES["chemical_concentration"], 0.0)
+        shear = self.nodes.get(GRN_INPUT_NODES["shear_stress"], 0.0)
+
+        stickiness = clamp(0.6 * collision + 0.15 * chemical + 0.25 * shear)
+        morphology = clamp(0.15 * collision + 0.35 * chemical + 0.50 * shear)
+        secretion_rate = clamp(0.15 * collision + 0.65 * chemical + 0.20 * shear)
+
+        self.nodes[GRN_OUTPUT_NODES["stickiness"]] = stickiness
+        self.nodes[GRN_OUTPUT_NODES["morphology"]] = morphology
+        self.nodes[GRN_OUTPUT_NODES["secretion_rate"]] = secretion_rate
+
+
+# -----------------------------
+# Agent containers
+# -----------------------------
+class AgentSensors:
+    def __init__(self):
+        self.collision_impulse = 0.0
+        self.chemical_concentration = 0.0
+        self.shear_stress = 0.0
+
+
+class AgentOutputs:
+    def __init__(self):
+        self.stickiness = 0.0
+        self.morphology = 0.0
+        self.secretion_rate = 0.0
+
+
+class GRNAgent:
+    def __init__(self):
+        self.position = np.array([0.0, 0.4, 0.0], dtype=float)
+        self.velocity = np.array([1.0, 0.0, 0.0], dtype=float)
+
+        self.grn = DummyGRN()
+        self.sensors = AgentSensors()
+        self.outputs = AgentOutputs()
+
+        self.morphology_level = 0.0
+        self.secreted_amount = 0.0
+
+        self.debug_history = {
+            "step": [],
+            "position_x": [],
+            "position_y": [],
+            "position_z": [],
+            "collision_impulse": [],
+            "chemical_concentration": [],
+            "shear_stress": [],
+            "stickiness": [],
+            "morphology": [],
+            "secretion_rate": [],
+            "speed": [],
+        }
+
+
+# -----------------------------
+# Simulation logic
+# -----------------------------
+def reset_sensors(agent: GRNAgent) -> None:
+    agent.sensors.collision_impulse = 0.0
+    agent.sensors.chemical_concentration = 0.0
+    agent.sensors.shear_stress = 0.0
+
+
+def compute_collision_impulse(agent: GRNAgent, step: int) -> float:
+    if 20 <= step <= 30:
+        return 1.0
+    if 31 <= step <= 40:
+        return 0.5
+    return 0.0
+
+
+def compute_chemical_concentration(agent: GRNAgent, step: int) -> float:
+    distance = np.linalg.norm(agent.position - CHEMICAL_SOURCE_POSITION)
+    concentration = 1.0 - (distance / CHEMICAL_SOURCE_RADIUS)
+    return clamp(concentration)
+
+
+def compute_shear_stress(agent: GRNAgent, step: int) -> float:
+    radial_distance = np.linalg.norm(agent.position[1:3])
+    normalized_shear = radial_distance / VESSEL_RADIUS
+    return clamp(normalized_shear)
+
+
+def write_sensors_to_grn(agent: GRNAgent) -> None:
+    agent.grn.set_node(GRN_INPUT_NODES["collision_impulse"], clamp(agent.sensors.collision_impulse))
+    agent.grn.set_node(GRN_INPUT_NODES["chemical_concentration"], clamp(agent.sensors.chemical_concentration))
+    agent.grn.set_node(GRN_INPUT_NODES["shear_stress"], clamp(agent.sensors.shear_stress))
+
+
+def step_agent_grn(agent: GRNAgent, dt: float) -> None:
+    agent.grn.step(dt)
+
+
+def read_grn_outputs(agent: GRNAgent) -> None:
+    agent.outputs.stickiness = clamp(agent.grn.get_node(GRN_OUTPUT_NODES["stickiness"]))
+    agent.outputs.morphology = clamp(agent.grn.get_node(GRN_OUTPUT_NODES["morphology"]))
+    agent.outputs.secretion_rate = clamp(agent.grn.get_node(GRN_OUTPUT_NODES["secretion_rate"]))
+
+
+def apply_stickiness(agent: GRNAgent, dt: float) -> None:
+    damping_factor = 1.0 - 0.1 * agent.outputs.stickiness
+    damping_factor = max(0.0, damping_factor)
+    agent.velocity *= damping_factor
+
+
+def apply_morphology(agent: GRNAgent) -> None:
+    agent.morphology_level = agent.outputs.morphology
+
+
+def apply_secretion(agent: GRNAgent, dt: float) -> None:
+    agent.secreted_amount += agent.outputs.secretion_rate * dt
+
+
+def apply_agent_outputs(agent: GRNAgent, dt: float) -> None:
+    apply_stickiness(agent, dt)
+    apply_morphology(agent)
+    apply_secretion(agent, dt)
+
+
+def update_position(agent: GRNAgent, dt: float) -> None:
+    agent.position += agent.velocity * dt
+    agent.position[0] = min(agent.position[0], VESSEL_LENGTH)
+
+
+def record_agent_debug(agent: GRNAgent, step: int) -> None:
+    agent.debug_history["step"].append(step)
+    agent.debug_history["position_x"].append(float(agent.position[0]))
+    agent.debug_history["position_y"].append(float(agent.position[1]))
+    agent.debug_history["position_z"].append(float(agent.position[2]))
+    agent.debug_history["collision_impulse"].append(agent.sensors.collision_impulse)
+    agent.debug_history["chemical_concentration"].append(agent.sensors.chemical_concentration)
+    agent.debug_history["shear_stress"].append(agent.sensors.shear_stress)
+    agent.debug_history["stickiness"].append(agent.outputs.stickiness)
+    agent.debug_history["morphology"].append(agent.outputs.morphology)
+    agent.debug_history["secretion_rate"].append(agent.outputs.secretion_rate)
+    agent.debug_history["speed"].append(float(np.linalg.norm(agent.velocity)))
+
+
+def run_simulation() -> GRNAgent:
+    agent = GRNAgent()
+
+    for step in range(STEPS):
+        reset_sensors(agent)
+
+        agent.sensors.collision_impulse = compute_collision_impulse(agent, step)
+        agent.sensors.chemical_concentration = compute_chemical_concentration(agent, step)
+        agent.sensors.shear_stress = compute_shear_stress(agent, step)
+
+        write_sensors_to_grn(agent)
+        step_agent_grn(agent, DT)
+        read_grn_outputs(agent)
+
+        apply_agent_outputs(agent, DT)
+        update_position(agent, DT)
+
+        record_agent_debug(agent, step)
+
+    return agent
+
+
+# -----------------------------
+# Geometry helpers
+# -----------------------------
+def make_vessel_surface():
+    return pv.Cylinder(
+        center=(VESSEL_LENGTH / 2.0, 0.0, 0.0),
+        direction=(1.0, 0.0, 0.0),
+        radius=VESSEL_RADIUS,
+        height=VESSEL_LENGTH,
+        resolution=96,
+    )
+
+
+def make_end_ring(x_pos: float, radius: float, n_points: int = 120):
+    theta = np.linspace(0.0, 2.0 * np.pi, n_points)
+    points = np.column_stack([
+        np.full_like(theta, x_pos),
+        radius * np.cos(theta),
+        radius * np.sin(theta),
+    ])
+    poly = pv.PolyData(points)
+    poly.lines = np.hstack([[n_points], np.arange(n_points)])
+    return poly
+
+
+def make_flow_arrows():
+    xs = np.linspace(0.5, VESSEL_LENGTH - 0.5, 5)
+    ys = np.array([-0.45, 0.0, 0.45])
+    pts = []
+    vecs = []
+
+    for x in xs:
+        for y in ys:
+            pts.append([x, y, 0.0])
+            vecs.append([0.45, 0.0, 0.0])
+
+    pts = np.array(pts, dtype=float)
+    vecs = np.array(vecs, dtype=float)
+
+    pdata = pv.PolyData(pts)
+    pdata["vectors"] = vecs
+    pdata["mag"] = np.linalg.norm(vecs, axis=1)
+    return pdata.glyph(orient="vectors", scale="mag", factor=0.6)
+
+
+def make_centerline():
+    points = np.array([
+        [0.0, 0.0, 0.0],
+        [VESSEL_LENGTH, 0.0, 0.0],
+    ])
+    return pv.Line(points[0], points[1], resolution=1)
+
+
+def make_source_mesh():
+    return pv.Sphere(radius=0.08, center=CHEMICAL_SOURCE_POSITION)
+
+
+def make_agent_sphere(center, stickiness):
+    sphere = pv.Sphere(radius=0.09, center=center, theta_resolution=32, phi_resolution=32)
+    sphere.point_data["stickiness"] = np.full(sphere.n_points, stickiness)
+    return sphere
+
+
+def make_trail_mesh(history_x, history_y, history_z):
+    points = np.column_stack([history_x, history_y, history_z])
+    if len(points) < 2:
+        return None
+    return pv.Spline(points, len(points) * 5)
+
+
+# -----------------------------
+# Visualization
+# -----------------------------
+def render_gif(agent: GRNAgent, output_path: str) -> None:
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    vessel = make_vessel_surface()
+    inlet_ring = make_end_ring(0.0, VESSEL_RADIUS)
+    outlet_ring = make_end_ring(VESSEL_LENGTH, VESSEL_RADIUS)
+    source = make_source_mesh()
+    flow_arrows = make_flow_arrows()
+    centerline = make_centerline()
+
+    plotter = pv.Plotter(off_screen=True, window_size=(1280, 820))
+    plotter.set_background("white")
+    plotter.open_movie("results/week2_day1_single_agent_cylinder_3d.mp4")
+
+    # Vessel
+    plotter.add_mesh(vessel, color="lightsteelblue", opacity=0.22, smooth_shading=True)
+    plotter.add_mesh(inlet_ring, color="navy", line_width=3)
+    plotter.add_mesh(outlet_ring, color="navy", line_width=3)
+
+    # Flow cues
+    plotter.add_mesh(flow_arrows, color="deepskyblue")
+    plotter.add_mesh(centerline, color="black", line_width=2)
+
+    # Chemical source
+    plotter.add_mesh(source, color="red", smooth_shading=True)
+
+    # Axes and bounds
+    plotter.show_axes()
+    plotter.show_bounds(
+        grid="front",
+        location="outer",
+        xtitle="X (flow direction)",
+        ytitle="Y",
+        ztitle="Z",
+        all_edges=True,
+        font_size=10,
+    )
+
+    plotter.add_text("3D Single-Agent Blood Vessel View", font_size=14)
+
+    start_center = (
+        agent.debug_history["position_x"][0],
+        agent.debug_history["position_y"][0],
+        agent.debug_history["position_z"][0],
+    )
+    agent_mesh = make_agent_sphere(start_center, agent.debug_history["stickiness"][0])
+
+    actor = plotter.add_mesh(
+        agent_mesh,
+        scalars="stickiness",
+        clim=[0.0, 1.0],
+        cmap="viridis",
+        smooth_shading=True,
+        show_scalar_bar=True,
+        scalar_bar_args={"title": "Stickiness", "vertical": False, "position_x": 0.32, "position_y": 0.03},
+    )
+
+    trail_actor = None
+
+    plotter.camera_position = [
+        (2.5, -4.4, 2.3),   # camera location
+        (2.5, 0.0, 0.0),    # focal point
+        (0.0, 0.0, 1.0),    # up direction
+    ]
+
+    n_steps = len(agent.debug_history["step"])
+
+    for i in range(n_steps):
+        center = (
+            agent.debug_history["position_x"][i],
+            agent.debug_history["position_y"][i],
+            agent.debug_history["position_z"][i],
+        )
+        stickiness = agent.debug_history["stickiness"][i]
+
+        new_sphere = make_agent_sphere(center, stickiness)
+        actor.mapper.SetInputData(new_sphere)
+
+        # Update trail
+        if trail_actor is not None:
+            plotter.remove_actor(trail_actor)
+
+        trail = make_trail_mesh(
+            agent.debug_history["position_x"][: i + 1],
+            agent.debug_history["position_y"][: i + 1],
+            agent.debug_history["position_z"][: i + 1],
+        )
+        if trail is not None:
+            trail_actor = plotter.add_mesh(trail, color="orange", line_width=4)
+
+        # Small camera orbit for better 3D feeling
+        angle = 0.003 * i
+        cam_x = 2.5 + 0.8 * np.cos(angle)
+        cam_y = -4.4 + 0.8 * np.sin(angle)
+        cam_z = 2.3
+        plotter.camera_position = [
+            (cam_x, cam_y, cam_z),
+            (2.5, 0.0, 0.0),
+            (0.0, 0.0, 1.0),
+        ]
+
+        plotter.write_frame()
+
+    plotter.close()
+
+
+def print_summary(agent: GRNAgent) -> None:
+    print("Final x position:", agent.debug_history["position_x"][-1])
+    print("Final speed:", agent.debug_history["speed"][-1])
+    print("Max collision impulse:", max(agent.debug_history["collision_impulse"]))
+    print("Max chemical concentration:", max(agent.debug_history["chemical_concentration"]))
+    print("Max shear stress:", max(agent.debug_history["shear_stress"]))
+    print("Max stickiness:", max(agent.debug_history["stickiness"]))
+    print("Saved GIF:", OUTPUT_GIF)
+
+
+if __name__ == "__main__":
+    agent = run_simulation()
+    render_gif(agent, OUTPUT_GIF)
+    print_summary(agent)
