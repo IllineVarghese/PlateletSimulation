@@ -3,6 +3,26 @@ import numpy as np
 
 from src.grn_engine.graphml_parser import load_graphml
 from src.grn_engine.agent_grn import GRNAgent
+from src.simulation.chemical_field import ChemicalField
+
+
+# --------------------------------------------------
+# Shear stress approximation (simple radial model)
+# Assumption:
+# - vessel cross-section is in x-y plane
+# - vessel center is around (0.5, 0.5)
+# - radius is 0.5 because positions are initialized in [0, 1]
+# --------------------------------------------------
+def compute_radial_distance(pos, center=(0.5, 0.5)):
+    dx = float(pos[0]) - float(center[0])
+    dy = float(pos[1]) - float(center[1])
+    return np.sqrt(dx * dx + dy * dy)
+
+
+def compute_shear_stress(pos, center=(0.5, 0.5), radius=0.5):
+    r = compute_radial_distance(pos, center)
+    shear = r / radius
+    return max(0.0, min(1.0, float(shear)))
 
 
 # --------------------------------------------------
@@ -84,6 +104,7 @@ def _initialize_sim(device: str = "cpu"):
         "dt": dt,
         "step": 0,
         "device": device,
+        "chemical_field": ChemicalField(),
     }
 
 
@@ -114,35 +135,52 @@ def run_step(device: str = "cpu"):
     num_platelets = _SIM_STATE["num_platelets"]
     dt = _SIM_STATE["dt"]
     step = _SIM_STATE["step"]
+    chemical_field = _SIM_STATE["chemical_field"]
 
-    # ----------------------------------------------
-    # GRN update: OutStickiness -> adhesion strength
-    # ----------------------------------------------
+    positions_np = positions.numpy()
+
+    chemical_field.decay(dt)
+
     adhesion_np = np.zeros(num_platelets, dtype=np.float32)
+    secretion_np = np.zeros(num_platelets, dtype=np.float32)
+    chemical_input_np = np.zeros(num_platelets, dtype=np.float32)
 
     for i, agent in enumerate(agents):
-        collision_input = _get_collision_input(step, i)
+        current_pos = positions_np[i]
+
+        collision_input = 0.0
+        shear_input = compute_shear_stress(current_pos)
+        molecule_input = chemical_field.sample(current_pos)
+
+        chemical_input_np[i] = molecule_input
 
         agent.set_sensor("InCollisionImpulse", collision_input)
-        agent.step()
+        agent.set_sensor("InShearStress", shear_input)
+        agent.set_sensor("InMolecule", molecule_input)
+
+        for _ in range(10):
+            agent.step()
 
         stickiness = agent.get_output("OutStickiness")
+        secretion_rate = agent.get_output("OutSecretionRate")
 
-        current_pos = positions.numpy()[i]
-        y_pos = current_pos[1]
+        adhesion_strength = min(1.0, max(0.0, float(stickiness)))
+        secretion_amount = max(0.0, float(secretion_rate)) * dt
 
-        # wider wall region
-        near_wall = (y_pos < 0.4) or (y_pos > 0.6)
-
-        if near_wall:
-           adhesion_strength = min(1.0, float(stickiness) * 3.0)
-        else:
-           adhesion_strength = min(1.0, float(stickiness))
-
-        adhesion_strength = max(0.0, adhesion_strength)
         adhesion_np[i] = adhesion_strength
+        secretion_np[i] = secretion_amount
 
-    print(f"Platelet {i}: y={y_pos:.3f}, near_wall={near_wall}, stickiness={stickiness:.4f}, adhesion={adhesion_strength:.4f}")
+    if i < 10:
+        print(
+            f"Platelet {i}: "
+            f"shear={shear_input:.3f}, "
+            f"chemical={molecule_input:.4f}, "
+            f"stickiness={stickiness:.6f}, "
+            f"secretion={secretion_rate:.6f}"
+        )   
+
+    for i in range(num_platelets):
+        chemical_field.deposit(positions_np[i], secretion_np[i])
 
     adhesion_strengths = wp.array(
         adhesion_np,
@@ -152,9 +190,6 @@ def run_step(device: str = "cpu"):
 
     _SIM_STATE["adhesion_strengths"] = adhesion_strengths
 
-    # ----------------------------------------------
-    # Movement update slowed by adhesion strength
-    # ----------------------------------------------
     wp.launch(
         kernel=move_platelets,
         dim=num_platelets,
@@ -164,14 +199,16 @@ def run_step(device: str = "cpu"):
     _SIM_STATE["step"] += 1
 
     print(f"Simulation step: {_SIM_STATE['step']}")
-    print("Adhesion strengths:")
-    print(adhesion_np)
-    print("Updated positions:")
-    print(positions.numpy())
+    print("First 10 adhesion strengths:")
+    print(adhesion_np[:10])
+    print("First 10 secretion amounts:")
+    print(secretion_np[:10])
+    print("First 10 sampled chemical inputs:")
+    print(chemical_input_np[:10])
+    print("Updated first 5 positions:")
+    print(positions.numpy()[:5])
 
-    # return both so platelet_sim.py can save both
     return positions, adhesion_strengths
-
 
 if __name__ == "__main__":
     run_step("cpu")

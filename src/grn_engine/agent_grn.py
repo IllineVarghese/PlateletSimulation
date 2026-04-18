@@ -5,29 +5,18 @@ class GRNAgent:
     def __init__(self, model):
         self.model = model
 
-        # initial GRN node values
         self.state = [0.0] * len(model.node_names)
 
-        # sensors
-        # Phase 2 active sensor:
-        #   InCollisionImpulse
-        # Phase 3 placeholders:
-        #   InMolecule
-        #   InShearStress
         self.sensors = {
             "InCollisionImpulse": 0.0,
             "InMolecule": 0.0,
             "InShearStress": 0.0,
         }
 
-        # actuator outputs
-        # Phase 2 active output:
-        #   OutStickiness
-        # Phase 3 placeholder:
-        #   OutCellShapeChange
         self.outputs = {
             "OutStickiness": 0.0,
             "OutCellShapeChange": 0.0,
+            "OutSecretionRate": 0.0,
         }
 
     def set_sensor(self, name, value):
@@ -40,17 +29,17 @@ class GRNAgent:
             self.model,
             self.state,
             self.sensors,
-            steps=1
+            steps=1,
         )
 
         self.state = final_state
-
-        # update real GRN outputs that exist in the current model
         self.outputs.update(outputs)
 
-        # keep Phase 3 placeholder output stable for now
         if "OutCellShapeChange" not in outputs:
             self.outputs["OutCellShapeChange"] = 0.0
+
+        if "OutSecretionRate" not in outputs:
+            self.outputs["OutSecretionRate"] = 0.0
 
         return self.outputs
 
