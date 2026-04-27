@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+  <key id="weight" for="edge" attr.name="weight" attr.type="double"/>
+
+  <graph id="Platelet_SQUAD_Inspired_GRN" edgedefault="directed">
+
+    <!-- Sensor input nodes -->
+    <node id="InCollisionImpulse"/>
+    <node id="InShearStress"/>
+    <node id="InChemicalConcentration"/>
+
+    <!-- Mechanical sensing modules -->
+    <node id="vWF_GPIb_ShearSensing"/>
+    <node id="GPVI_CollagenSignal"/>
+    <node id="Mechanosensitive_Ca2_Entry"/>
+
+    <!-- Chemical signaling modules -->
+    <node id="ADP_P2Y12_Receptor"/>
+    <node id="Thromboxane_TXA2_Signal"/>
+    <node id="PI3K_Akt_Pathway"/>
+
+    <!-- Core intracellular activation modules -->
+    <node id="PLCgamma2"/>
+    <node id="IP3_Ca2_Signaling"/>
+    <node id="PKC"/>
+    <node id="Rap1"/>
+    <node id="PlateletActivation"/>
+
+    <!-- Adhesion pathway -->
+    <node id="TalinKindlin_Activation"/>
+    <node id="Integrin_alphaIIb_beta3"/>
+    <node id="AdhesionProgram"/>
+
+    <!-- Secretion pathway -->
+    <node id="DenseGranuleSecretion"/>
+    <node id="ADP_TXA2_Feedback"/>
+    <node id="SecretionProgram"/>
+
+    <!-- Morphology pathway -->
+    <node id="RhoA_ROCK_Cytoskeleton"/>
+    <node id="ActinRemodeling"/>
+    <node id="MorphologyProgram"/>
+
+    <!-- Output actuator nodes -->
+    <node id="OutStickiness"/>
+    <node id="OutMorphologyChange"/>
+    <node id="OutSecretionRate"/>
+
+
+    <!-- Input to sensing -->
+    <edge source="InShearStress" target="vWF_GPIb_ShearSensing">
+      <data key="weight">1.8</data>
+    </edge>
+
+    <edge source="InCollisionImpulse" target="GPVI_CollagenSignal">
+      <data key="weight">1.3</data>
+    </edge>
+
+    <edge source="InShearStress" target="Mechanosensitive_Ca2_Entry">
+      <data key="weight">1.2</data>
+    </edge>
+
+    <edge source="InChemicalConcentration" target="ADP_P2Y12_Receptor">
+      <data key="weight">2.2</data>
+    </edge>
+
+    <edge source="InChemicalConcentration" target="Thromboxane_TXA2_Signal">
+      <data key="weight">1.5</data>
+    </edge>
+
+
+    <!-- Mechanical pathway -->
+    <edge source="vWF_GPIb_ShearSensing" target="PLCgamma2">
+      <data key="weight">1.3</data>
+    </edge>
+
+    <edge source="GPVI_CollagenSignal" target="PLCgamma2">
+      <data key="weight">1.5</data>
+    </edge>
+
+    <edge source="Mechanosensitive_Ca2_Entry" target="IP3_Ca2_Signaling">
+      <data key="weight">1.2</data>
+    </edge>
+
+
+    <!-- Chemical pathway -->
+    <edge source="ADP_P2Y12_Receptor" target="PI3K_Akt_Pathway">
+      <data key="weight">1.4</data>
+    </edge>
+
+    <edge source="Thromboxane_TXA2_Signal" target="PKC">
+      <data key="weight">1.2</data>
+    </edge>
+
+    <edge source="PI3K_Akt_Pathway" target="Rap1">
+      <data key="weight">1.3</data>
+    </edge>
+
+
+    <!-- Core activation -->
+    <edge source="PLCgamma2" target="IP3_Ca2_Signaling">
+      <data key="weight">1.4</data>
+    </edge>
+
+    <edge source="IP3_Ca2_Signaling" target="PKC">
+      <data key="weight">1.2</data>
+    </edge>
+
+    <edge source="PKC" target="PlateletActivation">
+      <data key="weight">1.2</data>
+    </edge>
+
+    <edge source="Rap1" target="PlateletActivation">
+      <data key="weight">1.4</data>
+    </edge>
+
+
+    <!-- Adhesion output -->
+    <edge source="PlateletActivation" target="Rap1">
+      <data key="weight">0.8</data>
+    </edge>
+
+    <edge source="Rap1" target="TalinKindlin_Activation">
+      <data key="weight">1.3</data>
+    </edge>
+
+    <edge source="TalinKindlin_Activation" target="Integrin_alphaIIb_beta3">
+      <data key="weight">1.4</data>
+    </edge>
+
+    <edge source="Integrin_alphaIIb_beta3" target="AdhesionProgram">
+      <data key="weight">1.2</data>
+    </edge>
+
+    <edge source="AdhesionProgram" target="OutStickiness">
+      <data key="weight">1.1</data>
+    </edge>
+
+
+    <!-- Secretion output and feedback -->
+    <edge source="PlateletActivation" target="DenseGranuleSecretion">
+      <data key="weight">1.2</data>
+    </edge>
+
+    <edge source="DenseGranuleSecretion" target="ADP_TXA2_Feedback">
+      <data key="weight">1.2</data>
+    </edge>
+
+    <edge source="ADP_TXA2_Feedback" target="SecretionProgram">
+      <data key="weight">1.0</data>
+    </edge>
+
+    <edge source="SecretionProgram" target="OutSecretionRate">
+      <data key="weight">1.0</data>
+    </edge>
+
+    <edge source="ADP_TXA2_Feedback" target="ADP_P2Y12_Receptor">
+      <data key="weight">0.8</data>
+    </edge>
+
+
+    <!-- Morphology output -->
+    <edge source="PlateletActivation" target="RhoA_ROCK_Cytoskeleton">
+      <data key="weight">1.1</data>
+    </edge>
+
+    <edge source="RhoA_ROCK_Cytoskeleton" target="ActinRemodeling">
+      <data key="weight">1.2</data>
+    </edge>
+
+    <edge source="ActinRemodeling" target="MorphologyProgram">
+      <data key="weight">1.1</data>
+    </edge>
+
+    <edge source="MorphologyProgram" target="OutMorphologyChange">
+      <data key="weight">1.0</data>
+    </edge>
+
+  </graph>
+</graphml>

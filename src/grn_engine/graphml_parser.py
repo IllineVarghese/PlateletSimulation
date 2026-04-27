@@ -20,6 +20,14 @@ OUTPUT_ALIASES = {
 }
 
 
+def canonical_node_name(name: str) -> str:
+    if name in INPUT_ALIASES:
+        return INPUT_ALIASES[name]
+    if name in OUTPUT_ALIASES:
+        return OUTPUT_ALIASES[name]
+    return name
+
+
 def load_graphml(path: str) -> GRNModel:
     path = Path(path)
     tree = ET.parse(path)
@@ -35,9 +43,11 @@ def load_graphml(path: str) -> GRNModel:
     node_names = []
 
     for node in graph.findall("g:node", namespace):
-        node_id = node.attrib["id"]
-        raw_node_ids.append(node_id)
-        node_names.append(node_id)
+        raw_id = node.attrib["id"]
+        canonical_name = canonical_node_name(raw_id)
+
+        raw_node_ids.append(raw_id)
+        node_names.append(canonical_name)
 
     node_index = {name: i for i, name in enumerate(node_names)}
     raw_id_to_index = {raw_id: i for i, raw_id in enumerate(raw_node_ids)}
@@ -59,6 +69,7 @@ def load_graphml(path: str) -> GRNModel:
         target_idx = raw_id_to_index[target_raw]
 
         weight = 1.0
+
         for data in edge.findall("g:data", namespace):
             text = (data.text or "").strip()
             if text:
@@ -76,9 +87,9 @@ def load_graphml(path: str) -> GRNModel:
     output_indices = []
 
     for i, name in enumerate(node_names):
-        if name in INPUT_ALIASES:
+        if name in set(INPUT_ALIASES.values()):
             input_indices.append(i)
-        if name in OUTPUT_ALIASES:
+        if name in set(OUTPUT_ALIASES.values()):
             output_indices.append(i)
 
     return GRNModel(
