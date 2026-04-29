@@ -61,7 +61,7 @@
 
     <!-- Mechanical signaling -->
     <edge source="vWF_GPIb_ShearSensing" target="PLCgamma2">
-      <data key="weight">1.0</data>
+      <data key="weight">2.0</data>
     </edge>
 
     <edge source="GPVI_CollagenSignal" target="PLCgamma2">
@@ -69,7 +69,7 @@
     </edge>
 
     <edge source="Mechanosensitive_Ca2_Entry" target="IP3_Ca2_Signaling">
-      <data key="weight">1.4</data>
+      <data key="weight">2.2</data>
     </edge>
 
     <!-- Chemical signaling -->
@@ -87,15 +87,15 @@
 
     <!-- Core activation -->
     <edge source="PLCgamma2" target="IP3_Ca2_Signaling">
-      <data key="weight">1.2</data>
+      <data key="weight">2.0</data>
     </edge>
 
     <edge source="IP3_Ca2_Signaling" target="PKC">
-      <data key="weight">1.0</data>
+      <data key="weight">2.0</data>
     </edge>
 
     <edge source="PKC" target="PlateletActivation">
-      <data key="weight">0.7</data>
+      <data key="weight">2.0</data>
     </edge>
 
     <edge source="Rap1" target="PlateletActivation">
@@ -109,19 +109,19 @@
 
     <!-- Adhesion output -->
     <edge source="Rap1" target="TalinKindlin_Activation">
-      <data key="weight">1.0</data>
+      <data key="weight">2.0</data>
     </edge>
 
     <edge source="TalinKindlin_Activation" target="Integrin_alphaIIb_beta3">
-      <data key="weight">1.0</data>
+      <data key="weight">2.0</data>
     </edge>
 
     <edge source="Integrin_alphaIIb_beta3" target="AdhesionProgram">
-      <data key="weight">0.9</data>
+      <data key="weight">2.0</data>
     </edge>
 
     <edge source="AdhesionProgram" target="OutStickiness">
-      <data key="weight">0.9</data>
+      <data key="weight">2.0</data>
     </edge>
 
     <!-- Secretion output and feedback -->

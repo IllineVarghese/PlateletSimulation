@@ -23,14 +23,16 @@ class GRNAgent:
     def set_sensor(self, name, value):
         if name not in self.sensors:
             raise KeyError(f"Unknown sensor name: {name}")
+
         self.sensors[name] = float(value)
 
-    def step(self, steps=1):
+    def step(self, steps=1, dt=0.08):
         final_state, outputs, history = run_grn_pipeline(
-            self.model,
-            self.state,
-            self.sensors,
+            model=self.model,
+            initial_state=self.state,
+            sensors=self.sensors,
             steps=steps,
+            dt=dt,
         )
 
         self.state = final_state

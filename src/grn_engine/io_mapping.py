@@ -26,6 +26,10 @@ def canonical_output_name(name):
     return OUTPUT_CANONICAL.get(name, name)
 
 
+def clamp01(value):
+    return max(0.0, min(1.0, float(value)))
+
+
 def apply_sensor_inputs(model, state, sensors):
     new_state = state.copy()
 
@@ -40,8 +44,7 @@ def apply_sensor_inputs(model, state, sensors):
         if idx not in model.input_indices:
             continue
 
-        value = max(0.0, min(1.0, float(value)))
-        new_state[idx] = value
+        new_state[idx] = clamp01(value)
 
     return new_state
 
@@ -57,14 +60,14 @@ def read_actuator_outputs(model, state):
     return outputs
 
 
-def run_grn_pipeline(model, initial_state, sensors, steps=10):
+def run_grn_pipeline(model, initial_state, sensors, steps=10, dt=0.08):
     state_with_inputs = apply_sensor_inputs(model, initial_state, sensors)
 
     history = run_grn(
-        model,
-        state_with_inputs,
+        model=model,
+        initial_state=state_with_inputs,
         steps=steps,
-        dt=0.15,
+        dt=dt,
     )
 
     final_state = history[-1]
