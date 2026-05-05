@@ -12,7 +12,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 def run_experiment(model, condition_name, collision, chemical):
     print(f"\n=== Running {condition_name} ===")
 
-    test_values = [0.0, 0.25, 0.5, 0.75, 1.0]
+    test_values = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.35, 0.5, 0.75, 1.0]
     results = []
 
     for shear in test_values:
