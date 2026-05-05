@@ -20,7 +20,7 @@ def run_experiment(model, condition_name, collision, chemical):
 
         agent.set_sensor("InCollisionImpulse", collision)
         agent.set_sensor("InChemicalConcentration", chemical)
-        agent.set_sensor("InShearStress", shear)
+        agent.set_sensor("InShearStress", shear * 3.0)
 
         for _ in range(80):
             agent.step()

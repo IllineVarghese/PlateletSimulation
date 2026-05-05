@@ -9,10 +9,10 @@ def sigmoid(x: float, gain: float = 2.5) -> float:
 def grn_step(
     model,
     state,
-    dt=0.08,
-    gain=1.2,
-    threshold=0.15,
-    decay=0.03,
+    dt=0.04,
+    gain=1.0,
+    threshold=0.55,
+    decay=0.08,
 ):
     """
     SQUAD-inspired continuous GRN update.
