@@ -1,6 +1,7 @@
 # Python cache
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
 # Virtual environments
 .venv/
@@ -13,10 +14,5 @@ venv/
 Thumbs.db
 .vscode/
 
-# Project outputs
-data/
-
 # Simulation results (generated)
-results/*.npy
-results/*.png
-
+results/
