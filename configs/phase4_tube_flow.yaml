@@ -13,6 +13,8 @@ geometry:
 flow:
   type: poiseuille
   vmax: 2.0
+  viscosity: 0.0035
+  reference_shear_stress: 0.014
 
 output:
   base_dir: results/phase4/week1_flow_validation
