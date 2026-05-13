@@ -1,0 +1,19 @@
+simulation:
+  num_agents: 500
+  steps: 120
+  dt: 0.02
+  seed: 42
+
+geometry:
+  type: cylinder
+  radius: 1.0
+  length: 8.0
+  flow_axis: x
+
+flow:
+  type: poiseuille
+  vmax: 2.0
+
+output:
+  base_dir: results/phase4/week1_flow_validation
+  save_every: 5
