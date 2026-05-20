@@ -1,0 +1,22 @@
+simulation:
+  num_agents: 500
+  steps: 120
+  dt: 0.02
+  seed: 42
+
+geometry:
+  type: cone
+  radius_start: 1.0
+  radius_end: 0.5
+  length: 8.0
+  flow_axis: x
+
+flow:
+  type: poiseuille_cone
+  vmax: 2.0
+  viscosity: 0.0035
+  reference_shear_stress: 0.014
+
+output:
+  base_dir: results/phase4/week3_cone_geometry
+  save_every: 5
