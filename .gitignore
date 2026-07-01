@@ -25,3 +25,7 @@ data/meshes/vessel/NurbsPath.mesh
 *.mp4
 *.avi
 *.mov
+
+# Phase 6 generated/test platelet meshes
+data/meshes/platelet/activated_usecase1*.obj
+data/meshes/platelet/activated_usecase1*.mtl
